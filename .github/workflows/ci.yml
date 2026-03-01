@@ -41,6 +41,7 @@ jobs:
         dotnet build src/LearnLuxembourgish.ServiceDefaults/LearnLuxembourgish.ServiceDefaults.csproj --no-restore
         dotnet build src/LearnLuxembourgish.Api/LearnLuxembourgish.Api.csproj --no-restore
         dotnet build src/LearnLuxembourgish.Web/LearnLuxembourgish.Web.csproj --no-restore
+        dotnet build tests/LearnLuxembourgish.Tests/LearnLuxembourgish.Tests.csproj --no-restore
       working-directory: ${{ github.workspace }}
 
     - name: Test
