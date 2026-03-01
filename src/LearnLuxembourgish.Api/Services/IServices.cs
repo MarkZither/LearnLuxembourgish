@@ -1,0 +1,18 @@
+using LearnLuxembourgish.Shared.Models;
+
+namespace LearnLuxembourgish.Api.Services;
+
+public interface ITranslationService
+{
+    Task<TranslationResult> TranslateAsync(TranslationRequest request, CancellationToken cancellationToken = default);
+}
+
+public interface IAudioService
+{
+    Task<string?> GenerateAudioAsync(string luxembourgishText, CancellationToken cancellationToken = default);
+}
+
+public interface IGrammarService
+{
+    Task<string?> ExplainGrammarAsync(string sourceText, string translatedText, CancellationToken cancellationToken = default);
+}

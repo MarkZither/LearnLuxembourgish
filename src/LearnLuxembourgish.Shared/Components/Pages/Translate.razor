@@ -1,0 +1,149 @@
+@page "/translate"
+@using LearnLuxembourgish.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Translate to Luxembourgish</PageTitle>
+
+<div class="container mt-4">
+    <h1>Translate to Luxembourgish</h1>
+    <p class="lead">Enter an English or Polish sentence to get an idiomatic Luxembourgish translation.</p>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Source Language</label>
+                <div class="btn-group d-block" role="group">
+                    <input type="radio" class="btn-check" name="lang" id="langEN" value="EN"
+                           checked="@(SourceLanguage == "EN")" @onchange="@(() => SourceLanguage = "EN")" />
+                    <label class="btn btn-outline-primary" for="langEN">English</label>
+
+                    <input type="radio" class="btn-check" name="lang" id="langPL" value="PL"
+                           checked="@(SourceLanguage == "PL")" @onchange="@(() => SourceLanguage = "PL")" />
+                    <label class="btn btn-outline-primary" for="langPL">Polish</label>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="inputText" class="form-label fw-bold">Text to Translate</label>
+                <textarea id="inputText" class="form-control" rows="4" placeholder="Enter text here..."
+                          @bind="InputText"></textarea>
+            </div>
+
+            <button class="btn btn-primary btn-lg" @onclick="TranslateAsync" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Translating...</span>
+                }
+                else
+                {
+                    <span>Translate</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    @if (ErrorMessage is not null)
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (Result is not null)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Translation Result
+                    <span class="badge bg-secondary ms-2">via @Result.Provider</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Original (@Result.SourceLanguage)</h6>
+                        <p class="p-3 bg-light rounded">@Result.OriginalText</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Luxembourgish (Lëtzebuergesch)</h6>
+                        <p class="p-3 bg-primary text-white rounded">@Result.TranslatedText</p>
+                    </div>
+                </div>
+
+                @if (Result.AudioUrl is not null)
+                {
+                    <div class="mb-3">
+                        <h6>Audio Pronunciation</h6>
+                        <audio controls src="@Result.AudioUrl" class="w-100">
+                            Your browser does not support audio playback.
+                        </audio>
+                    </div>
+                }
+
+                @if (Result.GrammarExplanation is not null)
+                {
+                    <div class="mb-3">
+                        <h6>Grammar Explanation</h6>
+                        <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">@Result.GrammarExplanation</div>
+                    </div>
+                }
+
+                <button class="btn btn-success" @onclick="SaveAsFlashCard">
+                    Save as Flash Card
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (SavedMessage is not null)
+    {
+        <div class="alert alert-success">@SavedMessage</div>
+    }
+</div>
+
+@code {
+    private string SourceLanguage { get; set; } = "EN";
+    private string InputText { get; set; } = string.Empty;
+    private TranslationResult? Result { get; set; }
+    private bool IsLoading { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string? SavedMessage { get; set; }
+
+    private async Task TranslateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(InputText)) return;
+
+        IsLoading = true;
+        ErrorMessage = null;
+        SavedMessage = null;
+        Result = null;
+
+        try
+        {
+            var request = new TranslationRequest { Text = InputText, SourceLanguage = SourceLanguage };
+            var response = await Http.PostAsJsonAsync("api/translations", request);
+            if (response.IsSuccessStatusCode)
+            {
+                Result = await response.Content.ReadFromJsonAsync<TranslationResult>();
+            }
+            else
+            {
+                ErrorMessage = $"Translation failed: {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveAsFlashCard()
+    {
+        if (Result is null) return;
+        SavedMessage = "Flash card saved! (Requires sign-in to persist)";
+        await Task.CompletedTask;
+    }
+}
