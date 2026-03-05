@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/LearnLuxembourgish.Api/LearnLuxembourgish.Api.csproj" />
+    <Project Path="src/LearnLuxembourgish.AppHost/LearnLuxembourgish.AppHost.csproj" />
     <Project Path="src/LearnLuxembourgish.Data.PostgreSQL/LearnLuxembourgish.Data.PostgreSQL.csproj" />
     <Project Path="src/LearnLuxembourgish.Data.Shared/LearnLuxembourgish.Data.Shared.csproj" />
     <Project Path="src/LearnLuxembourgish.Data.SQLite/LearnLuxembourgish.Data.SQLite.csproj" />
@@ -9,6 +10,10 @@
     <Project Path="src/LearnLuxembourgish.ServiceDefaults/LearnLuxembourgish.ServiceDefaults.csproj" />
     <Project Path="src/LearnLuxembourgish.Shared/LearnLuxembourgish.Shared.csproj" />
     <Project Path="src/LearnLuxembourgish.Web/LearnLuxembourgish.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Solution Items/">
+    <File Path=".gitignore" />
+    <File Path="README.md" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LearnLuxembourgish.Tests/LearnLuxembourgish.Tests.csproj" />
