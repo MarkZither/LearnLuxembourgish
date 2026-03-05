@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+                {
+            "name": "Aspire: AppHost (Dashboard + All Services)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/deepwiki-open-dotnet.AppHost/bin/Debug/net10.0/deepwiki-open-dotnet.AppHost.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Lea.AppHost",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s"
+            },
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            "name": "Attach to AppHost (show PID first)",
+            "type": "coreclr",
+            "request": "attach",
+            "preLaunchTask": "show-apphost-pid",
+            "processId": "${command:pickProcess}"
+        },
+    ]
+}
