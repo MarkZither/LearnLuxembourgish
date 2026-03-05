@@ -39,21 +39,81 @@ LearnLuxembourgish/
 
 ### Development Setup
 
-1. Clone the repository
-2. Configure API keys in `src/LearnLuxembourgish.Api/appsettings.Development.json`:
-   ```json
-   {
-     "Translation": {
-       "DeepL": { "ApiKey": "your-deepl-key" },
-       "Mistral": { "ApiKey": "your-mistral-key" }
-     },
-     "Grammar": {
-       "Mistral": { "ApiKey": "your-mistral-key" }
-     }
-   }
+1. **Clone the repository**
+
+2. **Configure User Secrets**
+
+   > 📚 **For detailed instructions**, see [User Secrets Setup Guide](docs/USER_SECRETS_SETUP.md)
+
+   **Option A: Using Aspire AppHost (Recommended)**
+
+   When running with Aspire, configure secrets in the AppHost project. Aspire will inject these into the API and Web projects automatically:
+
+   ```bash
+   # AppHost Parameters (Aspire injects these into child projects)
+   dotnet user-secrets set "Parameters:azure-ad-tenant-id" "your-tenant-id" --project src/LearnLuxembourgish.AppHost
+   dotnet user-secrets set "Parameters:azure-ad-api-client-id" "your-api-client-id" --project src/LearnLuxembourgish.AppHost
+   dotnet user-secrets set "Parameters:azure-ad-web-client-id" "your-web-client-id" --project src/LearnLuxembourgish.AppHost
+
+   # Optional: API keys (leave empty to use Ollama)
+   dotnet user-secrets set "Parameters:deepl-api-key" "your-deepl-key" --project src/LearnLuxembourgish.AppHost
+   dotnet user-secrets set "Parameters:mistral-api-key" "your-mistral-key" --project src/LearnLuxembourgish.AppHost
    ```
-3. Run the API: `dotnet run --project src/LearnLuxembourgish.Api`
-4. Run the Web app: `dotnet run --project src/LearnLuxembourgish.Web`
+
+   **Option B: Running Projects Individually**
+
+   If running API and Web separately (without Aspire), configure secrets directly in each project:
+
+   <details>
+   <summary>Click to expand individual project configuration</summary>
+
+   #### API Project Secrets
+   ```bash
+   # Set Azure AD authentication (required for auth)
+   dotnet user-secrets set "AzureAd:TenantId" "your-tenant-id" --project src/LearnLuxembourgish.Api
+   dotnet user-secrets set "AzureAd:ClientId" "your-api-client-id" --project src/LearnLuxembourgish.Api
+   dotnet user-secrets set "AzureAd:Domain" "your-tenant.onmicrosoft.com" --project src/LearnLuxembourgish.Api
+
+   # Optional: Translation API keys
+   dotnet user-secrets set "Translation:DeepL:ApiKey" "your-deepl-key" --project src/LearnLuxembourgish.Api
+   dotnet user-secrets set "Translation:Mistral:ApiKey" "your-mistral-key" --project src/LearnLuxembourgish.Api
+   dotnet user-secrets set "Grammar:Mistral:ApiKey" "your-mistral-key" --project src/LearnLuxembourgish.Api
+   ```
+
+   #### Web Project Secrets
+   ```bash
+   # Set Azure AD authentication
+   dotnet user-secrets set "AzureAd:TenantId" "your-tenant-id" --project src/LearnLuxembourgish.Web
+   dotnet user-secrets set "AzureAd:ClientId" "your-web-client-id" --project src/LearnLuxembourgish.Web
+   dotnet user-secrets set "AzureAd:Domain" "your-tenant.onmicrosoft.com" --project src/LearnLuxembourgish.Web
+   ```
+   </details>
+
+   > **Note**: User secrets are stored locally and never checked into source control. Aspire automatically injects AppHost parameters into child projects via environment variables.
+
+3. **Run with Aspire (Recommended)**
+   ```bash
+   dotnet run --project src/LearnLuxembourgish.AppHost
+   ```
+
+   **What Aspire provides:**
+   - ✅ Automatic service discovery (Web → API communication)
+   - ✅ Configuration injection from AppHost to child projects
+   - ✅ Dynamic CORS configuration based on Web's endpoint
+   - ✅ PostgreSQL with pgAdmin UI
+   - ✅ Integrated Aspire Dashboard for telemetry and logs
+   - ✅ Simplified deployment with `azd` (Azure Developer CLI)
+
+4. **Or run projects individually** (without Aspire)
+   ```bash
+   # Terminal 1 - API
+   dotnet run --project src/LearnLuxembourgish.Api
+
+   # Terminal 2 - Web
+   dotnet run --project src/LearnLuxembourgish.Web
+   ```
+
+   > ⚠️ When running individually, you must manually configure each project's secrets and ensure the Web project's `ApiBaseUrl` points to the correct API endpoint.
 
 ### Translation Fallback Chain
 
@@ -61,17 +121,27 @@ LearnLuxembourgish/
 2. **Mistral** (`Translation:Mistral:ApiKey`) — if DeepL unavailable
 3. **Ollama** (`Translation:Ollama:Endpoint`, default `http://localhost:11434/v1`) — local fallback
 
+### Required vs Optional Secrets
+
+| Secret | Required? | Purpose | Default/Fallback |
+|--------|-----------|---------|------------------|
+| `AzureAd:TenantId` | ⚠️ If using auth | Microsoft Entra authentication | Anonymous access |
+| `AzureAd:ClientId` | ⚠️ If using auth | Microsoft Entra authentication | Anonymous access |
+| `AzureAd:Domain` | ⚠️ If using auth | Microsoft Entra authentication | Anonymous access |
+| `Translation:DeepL:ApiKey` | ❌ Optional | Highest quality translation | Falls back to Mistral/Ollama |
+| `Translation:Mistral:ApiKey` | ❌ Optional | Good quality translation | Falls back to Ollama |
+| `Grammar:Mistral:ApiKey` | ❌ Optional | Grammar explanations | Falls back to Ollama |
+| `ConnectionStrings:DefaultConnection` | ❌ Optional | Database connection | SQLite (`learnluxembourgish.db`) |
+
+> **💡 Tip**: For local development without API keys, just run [Ollama](https://ollama.ai) locally with `llama3` model. The app will work fully offline!
+
 ### Database Configuration
 
 Default: SQLite (`learnluxembourgish.db` in working directory)
 
 For PostgreSQL:
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Database=learnluxembourgish;Username=postgres;Password=..."
-  }
-}
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Database=learnluxembourgish;Username=postgres;Password=yourpassword" --project src/LearnLuxembourgish.Api
 ```
 
 And register `AddPostgreSQLDataStore` in `Program.cs` instead of `AddSQLiteDataStore`.
