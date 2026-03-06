@@ -15,8 +15,7 @@ var ollamaEndpoint = builder.AddConnectionString("OllamaEndpoint", "http://local
 var deepLApiKey = builder.AddParameter("deepl-api-key", secret: true);
 var mistralApiKey = builder.AddParameter("mistral-api-key", secret: true);
 var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", secret: true);
-var azureAdApiClientId = builder.AddParameter("azure-ad-api-client-id", secret: true);
-var azureAdWebClientId = builder.AddParameter("azure-ad-web-client-id", secret: true);
+var azureAdClientId = builder.AddParameter("azure-ad-client-id", secret: true);
 
 // Add API project with database reference and configuration injection
 var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
@@ -27,14 +26,14 @@ var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
     .WithEnvironment("Translation__Ollama__Endpoint", ollamaEndpoint)
     .WithEnvironment("Grammar__Ollama__Endpoint", ollamaEndpoint)
     .WithEnvironment("AzureAd__TenantId", azureAdTenantId)
-    .WithEnvironment("AzureAd__ClientId", azureAdApiClientId);
+    .WithEnvironment("AzureAd__ClientId", azureAdClientId);
 
 // Add Web frontend with reference to API and configuration injection
 var web = builder.AddProject<Projects.LearnLuxembourgish_Web>("web")
     .WithExternalHttpEndpoints()
     .WithReference(api)
     .WithEnvironment("AzureAd__TenantId", azureAdTenantId)
-    .WithEnvironment("AzureAd__ClientId", azureAdWebClientId);
+    .WithEnvironment("AzureAd__ClientId", azureAdClientId);
 
 // Configure CORS AllowedOrigins dynamically based on Web's endpoint
 api.WithEnvironment(context =>

@@ -20,8 +20,7 @@ When using .NET Aspire (recommended), you configure secrets **once** in the AppH
 ```bash
 # Set Azure AD authentication (required if using auth)
 dotnet user-secrets set "Parameters:azure-ad-tenant-id" "your-tenant-id" --project src/LearnLuxembourgish.AppHost
-dotnet user-secrets set "Parameters:azure-ad-api-client-id" "your-api-client-id" --project src/LearnLuxembourgish.AppHost
-dotnet user-secrets set "Parameters:azure-ad-web-client-id" "your-web-client-id" --project src/LearnLuxembourgish.AppHost
+dotnet user-secrets set "Parameters:azure-ad-client-id" "your-client-id" --project src/LearnLuxembourgish.AppHost
 
 # Set translation API keys (optional - falls back to Ollama if not set)
 dotnet user-secrets set "Parameters:deepl-api-key" "your-deepl-key" --project src/LearnLuxembourgish.AppHost
@@ -110,14 +109,15 @@ You can add authentication and API keys later as needed.
 1. Go to https://portal.azure.com
 2. Navigate to "Microsoft Entra ID" (formerly Azure AD)
 3. Register a new application:
-   - **API App Registration**:
-     - Name: LearnLuxembourgish API
-     - Redirect URIs: `https://localhost:5050/signin-oidc`
-     - Expose an API: Add scope `access_as_user`
-   - **Web App Registration**:
-     - Name: LearnLuxembourgish Web
-     - Redirect URIs: `https://localhost:5001/signin-oidc`
-     - API Permissions: Add permission to API app's `access_as_user` scope
+   - **Name**: LearnLuxembourgish
+   - **Redirect URIs**: Add both:
+     - `https://localhost:5001/signin-oidc` (Web)
+     - `https://localhost:5050/signin-oidc` (API)
+   - **API Permissions**: Add Microsoft Graph permissions if needed
+   - Copy the **Application (client) ID** - this is your `azure-ad-client-id`
+   - Copy the **Directory (tenant) ID** - this is your `azure-ad-tenant-id`
+
+**Note**: This uses a single Azure AD app registration for both the API and Web projects. For production environments with stricter security requirements, consider using separate registrations.
 
 ## Security Best Practices
 
