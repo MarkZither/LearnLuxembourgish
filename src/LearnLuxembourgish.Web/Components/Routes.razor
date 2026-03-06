@@ -1,8 +1,22 @@
-﻿<Router AppAssembly="typeof(Program).Assembly"
-        AdditionalAssemblies="[typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly]"
-        NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly"
+            AdditionalAssemblies="[typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly]">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not Found</PageTitle>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <div class="container mt-4">
+                    <h1>Not Found</h1>
+                    <p>Sorry, the content you are looking for does not exist.</p>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
