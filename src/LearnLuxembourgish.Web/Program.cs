@@ -15,7 +15,13 @@ builder.Services.AddRazorComponents()
 var azureAdClientId = builder.Configuration["AzureAd:ClientId"];
 var azureAdTenantId = builder.Configuration["AzureAd:TenantId"];
 
-if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+// Check if Azure AD is properly configured (not empty or placeholder values)
+var isAzureAdConfigured = !string.IsNullOrEmpty(azureAdClientId) 
+    && !string.IsNullOrEmpty(azureAdTenantId)
+    && !azureAdClientId.Contains("<")
+    && !azureAdTenantId.Contains("<");
+
+if (isAzureAdConfigured)
 {
     builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
         .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
@@ -49,7 +55,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 // Only use authentication if it was configured
-if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+if (isAzureAdConfigured)
 {
     app.UseAuthentication();
     app.UseAuthorization();
@@ -62,7 +68,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 // Only map MVC controllers if authentication is configured (needed for Microsoft.Identity.UI)
-if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+if (isAzureAdConfigured)
 {
     app.MapControllers();
 }

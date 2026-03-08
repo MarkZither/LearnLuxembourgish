@@ -20,7 +20,13 @@ builder.Services.AddSQLiteDataStore(connectionString);
 var azureAdClientId = builder.Configuration["AzureAd:ClientId"];
 var azureAdTenantId = builder.Configuration["AzureAd:TenantId"];
 
-if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+// Check if Azure AD is properly configured (not empty or placeholder values)
+var isAzureAdConfigured = !string.IsNullOrEmpty(azureAdClientId) 
+    && !string.IsNullOrEmpty(azureAdTenantId)
+    && !azureAdClientId.Contains("<")
+    && !azureAdTenantId.Contains("<");
+
+if (isAzureAdConfigured)
 {
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
@@ -70,7 +76,7 @@ app.UseHttpsRedirection();
 app.UseCors();
 
 // Only use authentication if it was configured
-if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+if (isAzureAdConfigured)
 {
     app.UseAuthentication();
     app.UseAuthorization();
