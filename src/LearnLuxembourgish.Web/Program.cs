@@ -11,14 +11,20 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Authentication with EntraID
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+// Authentication with EntraID (optional - only if configured)
+var azureAdClientId = builder.Configuration["AzureAd:ClientId"];
+var azureAdTenantId = builder.Configuration["AzureAd:TenantId"];
 
-builder.Services.AddControllersWithViews()
-    .AddMicrosoftIdentityUI();
+if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+{
+    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
 
-builder.Services.AddAuthorization();
+    builder.Services.AddControllersWithViews()
+        .AddMicrosoftIdentityUI();
+
+    builder.Services.AddAuthorization();
+}
 
 // HTTP client for calling the API
 builder.Services.AddHttpClient("api", client =>
@@ -41,13 +47,24 @@ if (!app.Environment.IsDevelopment())
 app.MapDefaultEndpoints();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
+
+// Only use authentication if it was configured
+if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-app.MapControllers();
+
+// Only map MVC controllers if authentication is configured (needed for Microsoft.Identity.UI)
+if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+{
+    app.MapControllers();
+}
 
 app.Run();

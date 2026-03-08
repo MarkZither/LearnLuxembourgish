@@ -16,11 +16,17 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Data Source=learnluxembourgish.db";
 builder.Services.AddSQLiteDataStore(connectionString);
 
-// Authentication with EntraID (Microsoft Identity)
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+// Authentication with EntraID (Microsoft Identity) - optional
+var azureAdClientId = builder.Configuration["AzureAd:ClientId"];
+var azureAdTenantId = builder.Configuration["AzureAd:TenantId"];
 
-builder.Services.AddAuthorization();
+if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+{
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
+    builder.Services.AddAuthorization();
+}
 
 // HTTP clients
 builder.Services.AddHttpClient("translation");
@@ -62,8 +68,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors();
-app.UseAuthentication();
-app.UseAuthorization();
+
+// Only use authentication if it was configured
+if (!string.IsNullOrEmpty(azureAdClientId) && !string.IsNullOrEmpty(azureAdTenantId))
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
 app.MapControllers();
 
 app.Run();

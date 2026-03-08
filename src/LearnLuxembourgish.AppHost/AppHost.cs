@@ -5,21 +5,24 @@ var postgres = builder.AddPostgres("postgres")
     .WithPgAdmin();
 
 // Add SQLite database for API (local file-based)
-var sqliteDb = builder.AddConnectionString("DefaultConnection", "Data Source=learnluxembourgish.db");
+// Using AddParameter with default value so it doesn't require user secrets
+var sqliteDb = builder.AddParameter("default-connection", "Data Source=learnluxembourgish.db", secret: false);
 
 // Optional: Add Ollama for local AI (if running)
-var ollamaEndpoint = builder.AddConnectionString("OllamaEndpoint", "http://localhost:11434/v1");
+// Using AddParameter with default value so it doesn't require user secrets
+var ollamaEndpoint = builder.AddParameter("ollama-endpoint", "http://localhost:11434/v1", secret: false);
 
 // Add parameters for sensitive configuration (prompts during 'azd up' deployment)
 // For local development, these use user secrets in the API/Web projects
 var deepLApiKey = builder.AddParameter("deepl-api-key", secret: true);
 var mistralApiKey = builder.AddParameter("mistral-api-key", secret: true);
-var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", secret: true);
-var azureAdClientId = builder.AddParameter("azure-ad-client-id", secret: true);
+// Azure AD parameters are optional - app works without authentication
+var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", "", secret: false);
+var azureAdClientId = builder.AddParameter("azure-ad-client-id", "", secret: false);
 
 // Add API project with database reference and configuration injection
 var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
-    .WithReference(sqliteDb)
+    .WithEnvironment("ConnectionStrings__DefaultConnection", sqliteDb)
     .WithEnvironment("Translation__DeepL__ApiKey", deepLApiKey)
     .WithEnvironment("Translation__Mistral__ApiKey", mistralApiKey)
     .WithEnvironment("Grammar__Mistral__ApiKey", mistralApiKey)
