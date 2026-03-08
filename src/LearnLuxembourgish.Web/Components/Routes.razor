@@ -4,7 +4,13 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
-                    <RedirectToLogin />
+                    <div class="container mt-4">
+                        <div class="alert alert-warning">
+                            <h4>Authentication Required</h4>
+                            <p>You need to be logged in to access this page.</p>
+                            <a href="MicrosoftIdentity/Account/SignIn" class="btn btn-primary">Login with Microsoft</a>
+                        </div>
+                    </div>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
