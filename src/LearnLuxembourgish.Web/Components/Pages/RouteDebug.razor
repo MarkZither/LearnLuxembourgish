@@ -1,0 +1,47 @@
+@page "/route-debug"
+@using System.Reflection
+@using Microsoft.AspNetCore.Components
+
+<PageTitle>Route Debug</PageTitle>
+
+<h1>Route Debug Information</h1>
+
+<h2>Main Assembly Routes</h2>
+<ul>
+    @foreach (var type in typeof(Program).Assembly.GetTypes()
+        .Where(t => t.GetCustomAttribute(typeof(RouteAttribute)) != null))
+    {
+        var routeAttr = (RouteAttribute)type.GetCustomAttribute(typeof(RouteAttribute))!;
+        <li>@type.FullName - Route: @routeAttr.Template</li>
+    }
+</ul>
+
+<h2>Shared Assembly Routes</h2>
+<ul>
+    @foreach (var type in typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly.GetTypes()
+        .Where(t => t.GetCustomAttribute(typeof(RouteAttribute)) != null))
+    {
+        var routeAttr = (RouteAttribute)type.GetCustomAttribute(typeof(RouteAttribute))!;
+        <li>@type.FullName - Route: @routeAttr.Template</li>
+    }
+</ul>
+
+<h2>All Loaded Assemblies</h2>
+<ul>
+    @foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies()
+        .Where(a => a.FullName?.Contains("LearnLuxembourgish") == true)
+        .OrderBy(a => a.FullName))
+    {
+        <li>@assembly.FullName</li>
+    }
+</ul>
+
+<h2>Additional Assemblies Being Passed to Router</h2>
+<ul>
+    @foreach (var assembly in new[] { typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly })
+    {
+        <li>@assembly.FullName</li>
+        <li>Location: @assembly.Location</li>
+        <li>Has Translate type: @(assembly.GetType("LearnLuxembourgish.Shared.Components.Pages.Translate") != null)</li>
+    }
+</ul>
