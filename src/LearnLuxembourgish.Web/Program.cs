@@ -65,7 +65,8 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly);
 
 // Only map MVC controllers if authentication is configured (needed for Microsoft.Identity.UI)
 if (isAzureAdConfigured)
