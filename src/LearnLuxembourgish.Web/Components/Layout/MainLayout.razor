@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@using LearnLuxembourgish.Shared.Components.Layout
+@using LearnLuxembourgish.Shared.Components
 
 <div class="page">
     <div class="sidebar">
@@ -6,8 +8,9 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <LoginDisplay />
         </div>
 
         <article class="content px-4">
@@ -15,6 +18,9 @@
         </article>
     </main>
 </div>
+
+<!-- Token preloader - ensures token is loaded from localStorage on every circuit start -->
+<TokenInitializer />
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

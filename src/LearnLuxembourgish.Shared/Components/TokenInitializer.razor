@@ -1,0 +1,31 @@
+@using LearnLuxembourgish.Shared.Services
+@using Microsoft.JSInterop
+@using Microsoft.Extensions.Logging
+@inject TokenProvider TokenProvider
+@inject IJSRuntime JS
+@inject ILogger<TokenInitializer> Logger
+@rendermode InteractiveServer
+
+@* This component ensures the token is loaded from localStorage on every circuit start *@
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Explicitly load token from localStorage and populate TokenProvider
+                var token = await JS.InvokeAsync<string>("localStorage.getItem", "jwt_token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    await TokenProvider.SetTokenAsync(token);
+                    Logger.LogInformation("Token preloaded from localStorage on circuit start");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to preload token from localStorage");
+            }
+        }
+    }
+}
