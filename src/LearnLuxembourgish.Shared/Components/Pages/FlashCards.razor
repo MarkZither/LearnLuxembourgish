@@ -1,6 +1,11 @@
 @page "/flashcards"
 @using LearnLuxembourgish.Shared.Models
+@using Microsoft.Extensions.Logging
+@using System.Net
 @inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<FlashCards> Logger
+@rendermode InteractiveServer
 
 <PageTitle>Flash Cards</PageTitle>
 
@@ -18,19 +23,26 @@
         </select>
     </div>
 
+    @if (ErrorMessage is not null)
+    {
+        <div class="alert alert-danger">
+            @ErrorMessage
+        </div>
+    }
+
     @if (IsLoading)
     {
         <div class="text-center py-5">
             <div class="spinner-border" role="status"></div>
         </div>
     }
-    else if (Cards.Count == 0)
+    else if (Cards.Count == 0 && ErrorMessage is null)
     {
         <div class="alert alert-info">
             No flash cards yet. <a href="/translate">Translate a phrase</a> and save it!
         </div>
     }
-    else
+    else if (Cards.Count > 0)
     {
         @if (!IsReviewMode)
         {
@@ -107,22 +119,63 @@
     private bool IsReviewMode { get; set; }
     private bool IsFlipped { get; set; }
     private int ReviewIndex { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsAuthError { get; set; }
+    private bool _hasRendered = false;
 
-    protected override async Task OnInitializedAsync()
+    // Use OnAfterRenderAsync instead of OnInitializedAsync to avoid JSInterop prerendering issues
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await LoadCardsAsync();
+        if (firstRender && !_hasRendered)
+        {
+            _hasRendered = true;
+            await LoadCardsAsync();
+            StateHasChanged();
+        }
     }
 
     private async Task LoadCardsAsync()
     {
         IsLoading = true;
+        ErrorMessage = null;
+        IsAuthError = false;
+
         try
         {
             var url = string.IsNullOrEmpty(SelectedDeck)
                 ? "api/flashcards"
                 : $"api/flashcards?deck={Uri.EscapeDataString(SelectedDeck)}";
-            Cards = await Http.GetFromJsonAsync<List<FlashCardDto>>(url) ?? [];
+
+            Logger.LogInformation("Loading flashcards from {Url}", url);
+
+            // HttpClient automatically gets auth header via DelegatingHandler
+            var response = await Http.GetAsync(url);
+
+            Logger.LogInformation("FlashCards API response: {StatusCode}", response.StatusCode);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                IsAuthError = true;
+                ErrorMessage = "You need to log in to access your flash cards.";
+                Logger.LogWarning("Unauthorized access to flashcards");
+                return;
+            }
+
+            response.EnsureSuccessStatusCode();
+            Cards = await response.Content.ReadFromJsonAsync<List<FlashCardDto>>() ?? [];
             Decks = Cards.Select(c => c.DeckName).Distinct().Order().ToList();
+            Logger.LogInformation("Loaded {Count} flashcards successfully", Cards.Count);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            IsAuthError = true;
+            ErrorMessage = "You need to log in to access your flash cards.";
+            Logger.LogWarning(ex, "Unauthorized HTTP request to flashcards");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading flash cards: {ex.Message}";
+            Logger.LogError(ex, "Error loading flashcards");
         }
         finally
         {
@@ -159,13 +212,45 @@
 
     private async Task NextCardWithReview()
     {
-        await Http.PatchAsync($"api/flashcards/{Cards[ReviewIndex].Id}/review", null);
-        NextCard();
+        try
+        {
+            // HttpClient automatically gets auth header via DelegatingHandler
+            await Http.PatchAsync($"api/flashcards/{Cards[ReviewIndex].Id}/review", null);
+            NextCard();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            IsAuthError = true;
+            ErrorMessage = "Your session has expired. Please log in again.";
+            IsReviewMode = false;
+        }
     }
 
     private async Task DeleteCardAsync(Guid id)
     {
-        await Http.DeleteAsync($"api/flashcards/{id}");
-        await LoadCardsAsync();
+        try
+        {
+            // HttpClient automatically gets auth header via DelegatingHandler
+            var response = await Http.DeleteAsync($"api/flashcards/{id}");
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                IsAuthError = true;
+                ErrorMessage = "Your session has expired. Please log in again.";
+                return;
+            }
+
+            response.EnsureSuccessStatusCode();
+            await LoadCardsAsync();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            IsAuthError = true;
+            ErrorMessage = "Your session has expired. Please log in again.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error deleting flash card: {ex.Message}";
+        }
     }
 }
