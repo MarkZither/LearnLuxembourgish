@@ -1,7 +1,9 @@
 @page "/translate"
 @using LearnLuxembourgish.Shared.Models
-@inject HttpClient Http
+@using LearnLuxembourgish.Shared.Http
+@inject LearnLuxembourgish.Shared.Http.ApiClient Api
 @inject NavigationManager Navigation
+@rendermode InteractiveServer
 
 <PageTitle>Translate to Luxembourgish</PageTitle>
 
@@ -43,6 +45,33 @@
             </button>
         </div>
     </div>
+
+    @if (IsLoading && Progress != null)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Translate" Class="me-2" />
+                @Progress.CurrentStep
+            </MudText>
+            <MudProgressLinear Color="Color.Primary" Value="@Progress.PercentComplete" Class="mb-3" />
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @Progress.PercentComplete% Complete
+            </MudText>
+
+            @if (Progress.CompletedSteps.Any())
+            {
+                <div class="mt-3">
+                    @foreach (var step in Progress.CompletedSteps)
+                    {
+                        <div class="d-flex align-items-center mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="me-2" />
+                            <MudText Typo="Typo.body2">@step</MudText>
+                        </div>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
 
     @if (ErrorMessage is not null)
     {
@@ -107,6 +136,7 @@
     private bool IsLoading { get; set; }
     private string? ErrorMessage { get; set; }
     private string? SavedMessage { get; set; }
+    private TranslationProgress? Progress { get; set; }
 
     private async Task TranslateAsync()
     {
@@ -116,14 +146,54 @@
         ErrorMessage = null;
         SavedMessage = null;
         Result = null;
+        Progress = new TranslationProgress
+        {
+            CurrentStep = "Initializing translation...",
+            PercentComplete = 10
+        };
 
         try
         {
+            await Task.Delay(100);
+            StateHasChanged();
+
+            Progress.CurrentStep = "Sending request to translation service...";
+            Progress.PercentComplete = 20;
+            StateHasChanged();
+
             var request = new TranslationRequest { Text = InputText, SourceLanguage = SourceLanguage };
-            var response = await Http.PostAsJsonAsync("api/translations", request);
+            var response = await Api.PostAsJsonAsync("api/translations", request);
+
             if (response.IsSuccessStatusCode)
             {
-                Result = await response.Content.ReadFromJsonAsync<TranslationResult>();
+                var result = await response.Content.ReadFromJsonAsync<TranslationResult>();
+
+                if (result != null)
+                {
+                    Progress.CurrentStep = "Processing translation...";
+                    Progress.PercentComplete = 40;
+                    Progress.CompletedSteps.Add("✓ Request sent successfully");
+                    StateHasChanged();
+                    await Task.Delay(100);
+
+                    Progress.CurrentStep = "Generating Luxembourgish translation...";
+                    Progress.PercentComplete = 60;
+                    StateHasChanged();
+
+                    Result = result;
+
+                    Progress.CurrentStep = "Generating audio and grammar explanation...";
+                    Progress.PercentComplete = 80;
+                    Progress.CompletedSteps.Add($"✓ Translation completed via {Result.Provider}");
+                    StateHasChanged();
+                    await Task.Delay(500);
+
+                    Progress.CurrentStep = "Finalizing...";
+                    Progress.PercentComplete = 100;
+                    Progress.CompletedSteps.Add("✓ Audio and grammar explanation ready");
+                    StateHasChanged();
+                    await Task.Delay(300);
+                }
             }
             else
             {
@@ -137,13 +207,36 @@
         finally
         {
             IsLoading = false;
+            Progress = null;
         }
     }
 
     private async Task SaveAsFlashCard()
     {
         if (Result is null) return;
-        SavedMessage = "Flash card saved! (Requires sign-in to persist)";
-        await Task.CompletedTask;
+
+        try
+        {
+            var response = await Api.PostAsJsonAsync("api/flashcards", new
+            {
+                SourceText = InputText,
+                SourceLanguage,
+                TranslatedText = Result.TranslatedText,
+                AudioUrl = Result.AudioUrl,
+                GrammarExplanation = Result.GrammarExplanation,
+                DeckName = "Default"
+            });
+
+            if (response.IsSuccessStatusCode)
+                SavedMessage = "Flash card saved!";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                SavedMessage = "Please log in to save flash cards.";
+            else
+                SavedMessage = $"Could not save flash card: {response.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            SavedMessage = $"Error saving flash card: {ex.Message}";
+        }
     }
 }
