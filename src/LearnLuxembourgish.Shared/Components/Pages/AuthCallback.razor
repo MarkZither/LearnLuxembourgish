@@ -1,0 +1,132 @@
+@page "/auth/callback"
+@using Microsoft.JSInterop
+@using Microsoft.Extensions.Logging
+@using LearnLuxembourgish.Shared.Services
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject TokenProvider TokenProvider
+@inject ILogger<AuthCallback> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Logging in...</PageTitle>
+
+<div class="container mt-5">
+    <div class="text-center">
+        @if (string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">@statusMessage</p>
+        }
+        else
+        {
+            <div class="alert alert-danger">
+                <h4>Login Failed</h4>
+                <p>@errorMessage</p>
+                <a href="/" class="btn btn-primary">Go Home</a>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string statusMessage = "Completing login...";
+    private string? errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                statusMessage = "Extracting ID token...";
+                StateHasChanged();
+
+                // Get ID token from URL fragment using JavaScript
+                var idToken = await JS.InvokeAsync<string>("eval", 
+                    @"(() => {
+                        const hash = window.location.hash;
+                        const params = new URLSearchParams(hash.substring(1));
+                        return params.get('id_token');
+                    })()");
+
+                Logger.LogInformation("ID token extracted: {HasToken}", string.IsNullOrEmpty(idToken) ? "EMPTY" : "EXISTS");
+
+                if (string.IsNullOrEmpty(idToken))
+                {
+                    errorMessage = "No ID token found in callback URL";
+                    Logger.LogWarning("No ID token in callback URL");
+                    StateHasChanged();
+                    return;
+                }
+
+                statusMessage = "Exchanging token with API...";
+                StateHasChanged();
+
+                // Exchange ID token for our JWT
+                var request = new { IdToken = idToken, DeviceId = "web" };
+                Logger.LogInformation("Posting to API for token exchange");
+
+                var response = await Http.PostAsJsonAsync("api/auth/azure-ad", request);
+
+                Logger.LogInformation("API response: {StatusCode}", response.StatusCode);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    errorMessage = $"Authentication failed: {response.StatusCode}";
+                    Logger.LogError("Auth failed: {StatusCode} - {Error}", response.StatusCode, errorContent);
+                    StateHasChanged();
+                    return;
+                }
+
+                var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+                if (authResponse == null)
+                {
+                    errorMessage = "Invalid response from authentication service";
+                    Logger.LogError("Null auth response from API");
+                    StateHasChanged();
+                    return;
+                }
+
+                Logger.LogInformation("Auth successful! User: {UserName}", authResponse.User?.Name);
+
+                statusMessage = "Saving tokens...";
+                StateHasChanged();
+
+                // Store token in TokenProvider (automatically saves to localStorage too)
+                await TokenProvider.SetTokenAsync(authResponse.AccessToken);
+
+                // Store user info in localStorage
+                await JS.InvokeVoidAsync("localStorage.setItem", "refresh_token", authResponse.RefreshToken);
+                await JS.InvokeVoidAsync("localStorage.setItem", "user_name", authResponse.User?.Name ?? "User");
+
+                Logger.LogInformation("Tokens saved, redirecting to home");
+
+                // Redirect WITHOUT forceLoad to preserve the Blazor circuit and TokenProvider
+                Navigation.NavigateTo("/");
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Login error: {ex.Message}";
+                Logger.LogError(ex, "Auth callback error");
+                StateHasChanged();
+            }
+        }
+    }
+
+    public class AuthResponse
+    {
+        public string AccessToken { get; set; } = "";
+        public string RefreshToken { get; set; } = "";
+        public UserInfo? User { get; set; }
+    }
+
+    public class UserInfo
+    {
+        public string Name { get; set; } = "";
+        public string Email { get; set; } = "";
+    }
+}

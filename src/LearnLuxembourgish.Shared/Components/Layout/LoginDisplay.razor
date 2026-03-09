@@ -1,0 +1,120 @@
+@using Microsoft.JSInterop
+@using Microsoft.Extensions.Configuration
+@using Microsoft.Extensions.Logging
+@using LearnLuxembourgish.Shared.Services
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
+@inject TokenProvider TokenProvider
+@inject ILogger<LoginDisplay> Logger
+@rendermode InteractiveServer
+
+@if (isAuthenticated)
+{
+    <span class="text-white me-2">Hello, @userName!</span>
+    <button class="btn btn-sm btn-danger" @onclick="Logout">Log out</button>
+}
+else
+{
+    <button class="btn btn-sm btn-primary" @onclick="Login">Log in with Azure AD</button>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-2">@errorMessage</div>
+}
+
+@code {
+    private bool isAuthenticated = false;
+    private string? userName;
+    private string? errorMessage;
+    private bool _hasRendered = false;
+
+    // Check if authenticated on render
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_hasRendered)
+        {
+            _hasRendered = true;
+
+            // TokenProvider will auto-restore from localStorage
+            if (await TokenProvider.HasTokenAsync())
+            {
+                isAuthenticated = true;
+                try
+                {
+                    userName = await JS.InvokeAsync<string>("localStorage.getItem", "user_name");
+                }
+                catch { }
+                Logger.LogInformation("User authenticated from token");
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task Login()
+    {
+        try
+        {
+            Logger.LogInformation("Login button clicked");
+
+            var tenantId = Configuration["AzureAd:TenantId"];
+            var clientId = Configuration["AzureAd:ClientId"];
+
+            if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(clientId))
+            {
+                errorMessage = "Azure AD configuration missing. TenantId or ClientId not set.";
+                Logger.LogError("Azure AD config missing - TenantId or ClientId not set");
+                StateHasChanged();
+                return;
+            }
+
+            var baseUrl = Navigation.BaseUri.TrimEnd('/');
+            var redirectUri = $"{baseUrl}/auth/callback";
+
+            var authUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize" +
+                $"?client_id={clientId}" +
+                $"&response_type=id_token" +
+                $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                $"&response_mode=fragment" +
+                $"&scope=openid%20profile%20email" +
+                $"&nonce={Guid.NewGuid()}";
+
+            Logger.LogInformation("Redirecting to Azure AD");
+            Navigation.NavigateTo(authUrl, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Login error: {ex.Message}";
+            Logger.LogError(ex, "Login error");
+            StateHasChanged();
+        }
+    }
+
+    private async Task Logout()
+    {
+        try
+        {
+            Logger.LogInformation("Logout initiated");
+
+            // Clear token from TokenProvider and localStorage
+            await TokenProvider.ClearTokenAsync();
+            await JS.InvokeVoidAsync("localStorage.removeItem", "user_name");
+            await JS.InvokeVoidAsync("localStorage.removeItem", "refresh_token");
+
+            // Navigate without forceLoad to preserve circuit
+            Navigation.NavigateTo("/");
+
+            // Update UI
+            isAuthenticated = false;
+            userName = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Logout error: {ex.Message}";
+            Logger.LogError(ex, "Logout error");
+            StateHasChanged();
+        }
+    }
+}
