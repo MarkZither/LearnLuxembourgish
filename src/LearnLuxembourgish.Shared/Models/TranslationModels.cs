@@ -8,12 +8,20 @@ public class TranslationRequest
 
 public class TranslationResult
 {
+    public Guid? TranslationId { get; set; }  // Database ID, set when user is authenticated
     public required string OriginalText { get; set; }
     public required string SourceLanguage { get; set; }
     public required string TranslatedText { get; set; }
     public string? AudioUrl { get; set; }
     public string? GrammarExplanation { get; set; }
     public required string Provider { get; set; }
+}
+
+public class TranslationProgress
+{
+    public string CurrentStep { get; set; } = string.Empty;
+    public int PercentComplete { get; set; }
+    public List<string> CompletedSteps { get; set; } = new();
 }
 
 public class FlashCardRequest

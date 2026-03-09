@@ -215,15 +215,17 @@
     {
         if (Result is null) return;
 
+        if (Result.TranslationId is null)
+        {
+            SavedMessage = "Please log in before translating to save flash cards.";
+            return;
+        }
+
         try
         {
-            var response = await Api.PostAsJsonAsync("api/flashcards", new
+            var response = await Api.PostAsJsonAsync("api/flashcards", new FlashCardRequest
             {
-                SourceText = InputText,
-                SourceLanguage,
-                TranslatedText = Result.TranslatedText,
-                AudioUrl = Result.AudioUrl,
-                GrammarExplanation = Result.GrammarExplanation,
+                TranslationId = Result.TranslationId.Value,
                 DeckName = "Default"
             });
 

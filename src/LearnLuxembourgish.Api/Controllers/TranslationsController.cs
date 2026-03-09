@@ -48,15 +48,21 @@ public class TranslationsController : ControllerBase
             return BadRequest("SourceLanguage must be 'EN' or 'PL'.");
         }
 
+        _logger.LogInformation("Translation request received for {SourceLanguage} text", request.SourceLanguage);
+
         var result = await _translationService.TranslateAsync(request, cancellationToken);
+        _logger.LogInformation("Core translation completed with provider {Provider}", result.Provider);
 
         // Generate audio and grammar explanation in parallel
+        _logger.LogInformation("Starting parallel audio and grammar generation");
         var audioTask = _audioService.GenerateAudioAsync(result.TranslatedText, cancellationToken);
         var grammarTask = _grammarService.ExplainGrammarAsync(request.Text, result.TranslatedText, cancellationToken);
         await Task.WhenAll(audioTask, grammarTask);
 
         result.AudioUrl = await audioTask;
         result.GrammarExplanation = await grammarTask;
+        _logger.LogInformation("Audio and grammar generation completed. Audio: {HasAudio}, Grammar: {HasGrammar}", 
+            result.AudioUrl != null, result.GrammarExplanation != null);
 
         // Persist if user is authenticated
         if (User.Identity?.IsAuthenticated == true)
@@ -74,8 +80,11 @@ public class TranslationsController : ControllerBase
             };
             _dbContext.Translations.Add(translation);
             await _dbContext.SaveChangesAsync(cancellationToken);
+            result.TranslationId = translation.Id;
+            _logger.LogInformation("Translation saved to database with ID {TranslationId} for user {UserId}", translation.Id, userId);
         }
 
+        _logger.LogInformation("Translation request completed successfully");
         return Ok(result);
     }
 
