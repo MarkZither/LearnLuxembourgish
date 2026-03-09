@@ -1,7 +1,8 @@
 using LearnLuxembourgish.Web;
 using LearnLuxembourgish.Web.Components;
-using LearnLuxembourgish.Web.Handlers;
 using LearnLuxembourgish.Shared.Services;
+using LearnLuxembourgish.Shared.Http;
+using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,23 +19,25 @@ builder.Services.AddMudServices();
 // Add cascading authentication state for interactive components
 builder.Services.AddCascadingAuthenticationState();
 
-// Register server-side token storage (scoped = per Blazor circuit)
+// Register server-side token storage (scoped = per Blazor circuit/SignalR connection)
 builder.Services.AddScoped<TokenProvider>();
 
-// Register the auth header handler (scoped to access TokenProvider)
-builder.Services.AddScoped<AuthHeaderHandler>();
-
-// HttpClient for API calls with service discovery and auth header injection
+// HttpClient for API calls with Aspire service discovery (no auth handler - handled by ApiClient)
 builder.Services.AddHttpClient("api", client =>
 {
-    // BaseAddress will be resolved by Aspire service discovery to http://api
     client.BaseAddress = new Uri("http://api");
 })
-.AddServiceDiscovery() // Aspire service discovery
-.AddHttpMessageHandler<AuthHeaderHandler>(); // Add auth header to all requests
+.AddServiceDiscovery();
 
-// Default HttpClient uses the "api" named client
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("api"));
+// ApiClient is scoped and shares the same DI scope as TokenProvider (same Blazor circuit)
+// This avoids the IHttpClientFactory handler scope isolation problem
+builder.Services.AddScoped<ApiClient>(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient("api");
+    var tokenProvider = sp.GetRequiredService<TokenProvider>();
+    var logger = sp.GetRequiredService<ILogger<ApiClient>>();
+    return new ApiClient(httpClient, tokenProvider, logger);
+});
 
 var app = builder.Build();
 
