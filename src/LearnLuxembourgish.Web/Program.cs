@@ -1,7 +1,8 @@
+using LearnLuxembourgish.Web;
 using LearnLuxembourgish.Web.Components;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.Identity.Web;
-using Microsoft.Identity.Web.UI;
+using LearnLuxembourgish.Web.Handlers;
+using LearnLuxembourgish.Shared.Services;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,35 +12,29 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Authentication with EntraID (optional - only if configured)
-var azureAdClientId = builder.Configuration["AzureAd:ClientId"];
-var azureAdTenantId = builder.Configuration["AzureAd:TenantId"];
+// Add MudBlazor services
+builder.Services.AddMudServices();
 
-// Check if Azure AD is properly configured (not empty or placeholder values)
-var isAzureAdConfigured = !string.IsNullOrEmpty(azureAdClientId) 
-    && !string.IsNullOrEmpty(azureAdTenantId)
-    && !azureAdClientId.Contains("<")
-    && !azureAdTenantId.Contains("<");
+// Add cascading authentication state for interactive components
+builder.Services.AddCascadingAuthenticationState();
 
-if (isAzureAdConfigured)
-{
-    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-        .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+// Register server-side token storage (scoped = per Blazor circuit)
+builder.Services.AddScoped<TokenProvider>();
 
-    builder.Services.AddControllersWithViews()
-        .AddMicrosoftIdentityUI();
+// Register the auth header handler (scoped to access TokenProvider)
+builder.Services.AddScoped<AuthHeaderHandler>();
 
-    builder.Services.AddAuthorization();
-}
-
-// HTTP client for calling the API
+// HttpClient for API calls with service discovery and auth header injection
 builder.Services.AddHttpClient("api", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5050/");
-});
+    // BaseAddress will be resolved by Aspire service discovery to http://api
+    client.BaseAddress = new Uri("http://api");
+})
+.AddServiceDiscovery() // Aspire service discovery
+.AddHttpMessageHandler<AuthHeaderHandler>(); // Add auth header to all requests
 
-builder.Services.AddScoped(sp =>
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("api"));
+// Default HttpClient uses the "api" named client
+builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("api"));
 
 var app = builder.Build();
 
@@ -54,24 +49,11 @@ app.MapDefaultEndpoints();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-// Only use authentication if it was configured
-if (isAzureAdConfigured)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
-
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(typeof(LearnLuxembourgish.Shared.Components.Pages.Translate).Assembly);
-
-// Only map MVC controllers if authentication is configured (needed for Microsoft.Identity.UI)
-if (isAzureAdConfigured)
-{
-    app.MapControllers();
-}
 
 app.Run();
