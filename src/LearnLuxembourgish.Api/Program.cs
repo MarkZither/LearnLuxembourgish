@@ -57,32 +57,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2)
         };
-
-        // Add detailed logging for token validation
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError("JWT Authentication failed: {Error}", context.Exception.Message);
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("JWT Token validated successfully for user: {User}", 
-                    context.Principal?.Identity?.Name ?? "Unknown");
-                return Task.CompletedTask;
-            },
-            OnMessageReceived = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                var authHeader = context.Request.Headers["Authorization"].ToString();
-                logger.LogInformation("JWT OnMessageReceived - Authorization header: {Header}", 
-                    string.IsNullOrEmpty(authHeader) ? "MISSING" : "EXISTS");
-                return Task.CompletedTask;
-            }
-        };
     });
 
 builder.Services.AddAuthorization();
@@ -178,26 +152,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
 app.UseCors();
-
-// Debug middleware to log all request headers
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/api/flashcards"))
-    {
-        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("=== Request to {Path} ===", context.Request.Path);
-        logger.LogInformation("All headers: {Headers}", 
-            string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
-
-        var authHeader = context.Request.Headers["Authorization"].ToString();
-        logger.LogInformation("Authorization header value: {Auth}", 
-            string.IsNullOrEmpty(authHeader) ? "EMPTY/NULL" : authHeader);
-    }
-
-    await next();
-});
 
 // Always use authentication/authorization middleware
 app.UseAuthentication();
