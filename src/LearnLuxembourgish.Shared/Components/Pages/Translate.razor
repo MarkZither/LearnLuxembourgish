@@ -46,7 +46,7 @@
         </div>
     </div>
 
-    @if (IsLoading && Progress != null)
+    @if (Progress != null)
     {
         <MudPaper Class="pa-4 mb-4" Elevation="2">
             <MudText Typo="Typo.h6" Class="mb-3">
@@ -98,15 +98,27 @@
                     </div>
                 </div>
 
-                @if (Result.AudioUrl is not null)
-                {
-                    <div class="mb-3">
-                        <h6>Audio Pronunciation</h6>
+                <div class="mb-3">
+                    <h6>Audio Pronunciation</h6>
+                    @if (Result.AudioUrl is not null)
+                    {
                         <audio controls src="@Result.AudioUrl" class="w-100">
                             Your browser does not support audio playback.
                         </audio>
-                    </div>
-                }
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning py-2 mb-0">
+                            <small>
+                                <strong>Audio unavailable</strong>
+                                @if (Result.AudioError is not null)
+                                {
+                                    <span> — @Result.AudioError</span>
+                                }
+                            </small>
+                        </div>
+                    }
+                </div>
 
                 @if (Result.GrammarExplanation is not null)
                 {
@@ -176,21 +188,15 @@
                     StateHasChanged();
                     await Task.Delay(100);
 
-                    Progress.CurrentStep = "Generating Luxembourgish translation...";
-                    Progress.PercentComplete = 60;
-                    StateHasChanged();
-
                     Result = result;
-
-                    Progress.CurrentStep = "Generating audio and grammar explanation...";
-                    Progress.PercentComplete = 80;
-                    Progress.CompletedSteps.Add($"✓ Translation completed via {Result.Provider}");
-                    StateHasChanged();
-                    await Task.Delay(500);
 
                     Progress.CurrentStep = "Finalizing...";
                     Progress.PercentComplete = 100;
-                    Progress.CompletedSteps.Add("✓ Audio and grammar explanation ready");
+                    Progress.CompletedSteps.Add($"✓ Translation completed via {Result.Provider}");
+                    if (Result.AudioUrl is not null)
+                        Progress.CompletedSteps.Add("✓ Audio pronunciation ready");
+                    if (Result.GrammarExplanation is not null)
+                        Progress.CompletedSteps.Add("✓ Grammar explanation ready");
                     StateHasChanged();
                     await Task.Delay(300);
                 }
@@ -207,7 +213,7 @@
         finally
         {
             IsLoading = false;
-            Progress = null;
+            //Progress = null;
         }
     }
 
