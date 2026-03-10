@@ -9,7 +9,7 @@ public interface ITranslationService
 
 public interface IAudioService
 {
-    Task<string?> GenerateAudioAsync(string luxembourgishText, CancellationToken cancellationToken = default);
+    Task<(string? Url, string? Error)> GenerateAudioAsync(string luxembourgishText, CancellationToken cancellationToken = default);
 }
 
 public interface IGrammarService

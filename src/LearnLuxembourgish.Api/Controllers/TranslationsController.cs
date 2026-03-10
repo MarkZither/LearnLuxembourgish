@@ -59,9 +59,11 @@ public class TranslationsController : ControllerBase
         var grammarTask = _grammarService.ExplainGrammarAsync(request.Text, result.TranslatedText, cancellationToken);
         await Task.WhenAll(audioTask, grammarTask);
 
-        result.AudioUrl = await audioTask;
+        var (audioUrl, audioError) = await audioTask;
+        result.AudioUrl = audioUrl;
+        result.AudioError = audioError;
         result.GrammarExplanation = await grammarTask;
-        _logger.LogInformation("Audio and grammar generation completed. Audio: {HasAudio}, Grammar: {HasGrammar}", 
+        _logger.LogInformation("Audio and grammar generation completed. Audio: {HasAudio}, Grammar: {HasGrammar}",
             result.AudioUrl != null, result.GrammarExplanation != null);
 
         // Persist if user is authenticated

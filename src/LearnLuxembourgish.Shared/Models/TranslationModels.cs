@@ -13,6 +13,7 @@ public class TranslationResult
     public required string SourceLanguage { get; set; }
     public required string TranslatedText { get; set; }
     public string? AudioUrl { get; set; }
+    public string? AudioError { get; set; }
     public string? GrammarExplanation { get; set; }
     public required string Provider { get; set; }
 }
