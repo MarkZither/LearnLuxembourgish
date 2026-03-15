@@ -16,9 +16,11 @@ var ollamaEndpoint = builder.AddParameter("ollama-endpoint", "http://localhost:1
 // For local development, these use user secrets in the API/Web projects
 var deepLApiKey = builder.AddParameter("deepl-api-key", secret: true);
 var mistralApiKey = builder.AddParameter("mistral-api-key", secret: true);
-// Azure AD parameters are optional - app works without authentication
-var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", "", secret: false);
-var azureAdClientId = builder.AddParameter("azure-ad-client-id", "", secret: false);
+
+// Azure AD parameters are REQUIRED - app will not start without proper authentication
+var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", secret: true);
+var azureAdClientId = builder.AddParameter("azure-ad-client-id", secret: true);
+var azureAdInstance = builder.AddParameter("azure-ad-instance", "https://login.microsoftonline.com/", secret: false);
 
 // Add API project with database reference and configuration injection
 var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
@@ -28,6 +30,7 @@ var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
     .WithEnvironment("Grammar__Mistral__ApiKey", mistralApiKey)
     .WithEnvironment("Translation__Ollama__Endpoint", ollamaEndpoint)
     .WithEnvironment("Grammar__Ollama__Endpoint", ollamaEndpoint)
+    .WithEnvironment("AzureAd__Instance", azureAdInstance)
     .WithEnvironment("AzureAd__TenantId", azureAdTenantId)
     .WithEnvironment("AzureAd__ClientId", azureAdClientId);
 
@@ -35,6 +38,7 @@ var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
 var web = builder.AddProject<Projects.LearnLuxembourgish_Web>("web")
     .WithExternalHttpEndpoints()
     .WithReference(api)
+    .WithEnvironment("AzureAd__Instance", azureAdInstance)
     .WithEnvironment("AzureAd__TenantId", azureAdTenantId)
     .WithEnvironment("AzureAd__ClientId", azureAdClientId);
 
