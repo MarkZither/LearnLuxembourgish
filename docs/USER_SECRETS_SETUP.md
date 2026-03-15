@@ -24,6 +24,9 @@ dotnet user-secrets set "Parameters:azure-ad-client-id" "your-client-id" --proje
 
 # Set translation API keys (optional - falls back to Ollama if not set)
 dotnet user-secrets set "Parameters:deepl-api-key" "your-deepl-key" --project src/LearnLuxembourgish.AppHost
+
+# Set grammar analysis API key (optional - used server-side; users can also enter their own key in the UI Settings screen)
+# When not set, grammar analysis falls back to a local Ollama model.
 dotnet user-secrets set "Parameters:mistral-api-key" "your-mistral-key" --project src/LearnLuxembourgish.AppHost
 ```
 
@@ -50,8 +53,16 @@ dotnet user-secrets set "AzureAd:Domain" "your-tenant.onmicrosoft.com" --project
 dotnet user-secrets set "Translation:DeepL:ApiKey" "your-deepl-key" --project src/LearnLuxembourgish.Api
 dotnet user-secrets set "Translation:Mistral:ApiKey" "your-mistral-key" --project src/LearnLuxembourgish.Api
 
-# Set grammar API key (optional - can reuse Mistral key)
+# Grammar analysis – Mistral AI (cloud, recommended)
+# The API key set here is the server-side default used when no key is supplied by the client UI.
 dotnet user-secrets set "Grammar:Mistral:ApiKey" "your-mistral-key" --project src/LearnLuxembourgish.Api
+
+# Optional: override the Mistral model (default: mistral-large-latest)
+# dotnet user-secrets set "Grammar:Mistral:Model" "mistral-small-latest" --project src/LearnLuxembourgish.Api
+
+# Grammar analysis – Local model via Ollama (fallback when no Mistral key is available)
+# dotnet user-secrets set "Grammar:Ollama:Endpoint" "http://localhost:11434/v1" --project src/LearnLuxembourgish.Api
+# dotnet user-secrets set "Grammar:Ollama:Model" "llama3" --project src/LearnLuxembourgish.Api
 
 # Set custom database connection (optional)
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Database=learnluxembourgish;Username=postgres;Password=yourpassword" --project src/LearnLuxembourgish.Api
@@ -104,6 +115,15 @@ You can add authentication and API keys later as needed.
 1. Sign up at https://console.mistral.ai/
 2. Free tier available with rate limits
 3. Create an API key in the console
+
+**Two ways to use your Mistral key for grammar analysis:**
+
+| Method | When to use |
+|--------|-------------|
+| **User secrets / env var** (`Grammar:Mistral:ApiKey`) | Local development — key is server-side, shared for all users |
+| **UI Settings screen** (`/settings`) | Production — each user enters their own key; stored in browser `localStorage`, sent over HTTPS per request |
+
+The per-request key (from the UI) always takes priority over the server-configured key. If neither is present, grammar analysis falls back to a local Ollama model.
 
 ### Azure AD / Microsoft Entra (Authentication)
 1. Go to https://portal.azure.com
