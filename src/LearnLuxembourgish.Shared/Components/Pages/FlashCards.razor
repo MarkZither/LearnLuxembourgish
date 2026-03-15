@@ -1,8 +1,9 @@
 @page "/flashcards"
 @using LearnLuxembourgish.Shared.Models
+@using LearnLuxembourgish.Shared.Http
 @using Microsoft.Extensions.Logging
 @using System.Net
-@inject HttpClient Http
+@inject ApiClient Api
 @inject NavigationManager Navigation
 @inject ILogger<FlashCards> Logger
 @rendermode InteractiveServer
@@ -149,7 +150,7 @@
             Logger.LogInformation("Loading flashcards from {Url}", url);
 
             // HttpClient automatically gets auth header via DelegatingHandler
-            var response = await Http.GetAsync(url);
+            var response = await Api.GetAsync(url);
 
             Logger.LogInformation("FlashCards API response: {StatusCode}", response.StatusCode);
 
@@ -215,7 +216,7 @@
         try
         {
             // HttpClient automatically gets auth header via DelegatingHandler
-            await Http.PatchAsync($"api/flashcards/{Cards[ReviewIndex].Id}/review", null);
+            await Api.PatchAsync($"api/flashcards/{Cards[ReviewIndex].Id}/review");
             NextCard();
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
@@ -231,7 +232,7 @@
         try
         {
             // HttpClient automatically gets auth header via DelegatingHandler
-            var response = await Http.DeleteAsync($"api/flashcards/{id}");
+            var response = await Api.DeleteAsync($"api/flashcards/{id}");
 
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {

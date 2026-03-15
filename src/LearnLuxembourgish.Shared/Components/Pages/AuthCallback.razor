@@ -2,9 +2,10 @@
 @using Microsoft.JSInterop
 @using Microsoft.Extensions.Logging
 @using LearnLuxembourgish.Shared.Services
+@using LearnLuxembourgish.Shared.Http
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
-@inject HttpClient Http
+@inject ApiClient Api
 @inject TokenProvider TokenProvider
 @inject ILogger<AuthCallback> Logger
 @rendermode InteractiveServer
@@ -69,7 +70,7 @@
                 var request = new { IdToken = idToken, DeviceId = "web" };
                 Logger.LogInformation("Posting to API for token exchange");
 
-                var response = await Http.PostAsJsonAsync("api/auth/azure-ad", request);
+                var response = await Api.PostAsJsonAsync("api/auth/azure-ad", request);
 
                 Logger.LogInformation("API response: {StatusCode}", response.StatusCode);
 
