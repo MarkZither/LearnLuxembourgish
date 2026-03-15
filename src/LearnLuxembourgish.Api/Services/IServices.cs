@@ -14,5 +14,10 @@ public interface IAudioService
 
 public interface IGrammarService
 {
-    Task<string?> ExplainGrammarAsync(string sourceText, string translatedText, CancellationToken cancellationToken = default);
+    Task<string?> ExplainGrammarAsync(
+        string sourceText,
+        string translatedText,
+        string? apiKey = null,
+        string? provider = null,
+        CancellationToken cancellationToken = default);
 }

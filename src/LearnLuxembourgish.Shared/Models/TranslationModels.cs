@@ -4,6 +4,18 @@ public class TranslationRequest
 {
     public required string Text { get; set; }
     public required string SourceLanguage { get; set; }
+
+    /// <summary>
+    /// Optional Mistral API key supplied by the client (from UI settings, stored per session).
+    /// When present, takes priority over the server-configured key.
+    /// </summary>
+    public string? GrammarApiKey { get; set; }
+
+    /// <summary>
+    /// Grammar provider preference: "mistral" or "local".
+    /// Defaults to "mistral" when a key is present, otherwise "local".
+    /// </summary>
+    public string? GrammarProvider { get; set; }
 }
 
 public class TranslationResult

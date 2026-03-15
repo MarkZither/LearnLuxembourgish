@@ -56,7 +56,12 @@ public class TranslationsController : ControllerBase
         // Generate audio and grammar explanation in parallel
         _logger.LogInformation("Starting parallel audio and grammar generation");
         var audioTask = _audioService.GenerateAudioAsync(result.TranslatedText, cancellationToken);
-        var grammarTask = _grammarService.ExplainGrammarAsync(request.Text, result.TranslatedText, cancellationToken);
+        var grammarTask = _grammarService.ExplainGrammarAsync(
+            request.Text,
+            result.TranslatedText,
+            apiKey: request.GrammarApiKey,
+            provider: request.GrammarProvider,
+            cancellationToken: cancellationToken);
         await Task.WhenAll(audioTask, grammarTask);
 
         var (audioUrl, audioError) = await audioTask;

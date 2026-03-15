@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -7,6 +8,20 @@ public class GrammarService : IGrammarService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<GrammarService> _logger;
+    private static readonly ActivitySource ActivitySource = new("LearnLuxembourgish.Grammar");
+
+    private const string SystemPrompt =
+        "You are an expert Luxembourgish (Lëtzebuergesch) language teacher. " +
+        "Given an original text and its Luxembourgish translation, provide a structured grammatical breakdown. " +
+        "Your response must cover the following sections:\n" +
+        "1. **Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
+        "Explain any gender that may surprise English or Polish speakers.\n" +
+        "2. **Verbs** – Identify every verb, its infinitive form, tense, conjugation pattern, and any irregular forms.\n" +
+        "3. **Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
+        "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
+        "Give the affected words and the rule that governs them.\n" +
+        "4. **Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.\n" +
+        "Format each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
 
     public GrammarService(IConfiguration configuration, ILogger<GrammarService> logger)
     {
@@ -14,44 +29,98 @@ public class GrammarService : IGrammarService
         _logger = logger;
     }
 
-    public async Task<string?> ExplainGrammarAsync(string sourceText, string translatedText, CancellationToken cancellationToken = default)
+    public async Task<string?> ExplainGrammarAsync(
+        string sourceText,
+        string translatedText,
+        string? apiKey = null,
+        string? provider = null,
+        CancellationToken cancellationToken = default)
     {
+        using var activity = ActivitySource.StartActivity("ExplainGrammar");
+        activity?.SetTag("source.length", sourceText.Length);
+        activity?.SetTag("translated.length", translatedText.Length);
+        var startTime = Stopwatch.GetTimestamp();
+
         try
         {
-            var kernel = BuildKernel();
+            _logger.LogInformation("Generating grammar explanation for translation");
+            var (kernel, resolvedProvider) = BuildKernel(apiKey, provider);
+            activity?.SetTag("provider", resolvedProvider);
+
             var chat = kernel.GetRequiredService<IChatCompletionService>();
             var history = new ChatHistory();
-            history.AddSystemMessage(
-                "You are a Luxembourgish language expert. Provide a concise grammatical breakdown of the Luxembourgish translation, " +
-                "explaining key grammar points such as verb conjugation, noun genders, case usage, and any idiomatic expressions. " +
-                "Format the response in a clear, educational way suitable for language learners.");
+            history.AddSystemMessage(SystemPrompt);
             history.AddUserMessage(
-                $"Original text: {sourceText}\n\nLuxembourgish translation: {translatedText}\n\nPlease explain the grammar.");
+                $"Original text ({(sourceText.Length > 0 ? "source" : "unknown")}): {sourceText}" +
+                $"\n\nLuxembourgish translation: {translatedText}" +
+                $"\n\nPlease provide the full grammatical breakdown.");
 
             var response = await chat.GetChatMessageContentAsync(history, cancellationToken: cancellationToken);
+
+            var elapsed = Stopwatch.GetElapsedTime(startTime);
+            _logger.LogInformation("Grammar explanation completed in {ElapsedMs}ms via {Provider}",
+                elapsed.TotalMilliseconds, resolvedProvider);
+            activity?.SetTag("duration.ms", elapsed.TotalMilliseconds);
+            activity?.SetTag("success", true);
+
             return response.Content;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Grammar explanation failed");
+            var elapsed = Stopwatch.GetElapsedTime(startTime);
+            _logger.LogWarning(ex, "Grammar explanation failed after {ElapsedMs}ms", elapsed.TotalMilliseconds);
+            activity?.SetTag("success", false);
+            activity?.SetTag("error", ex.Message);
             return null;
         }
     }
 
-    private Kernel BuildKernel()
+    /// <summary>
+    /// Resolves the kernel to use. Priority order:
+    ///   1. Explicit per-request apiKey (from UI settings) with provider hint
+    ///   2. Mistral API key from configuration (user secrets / env vars)
+    ///   3. Local Ollama model (fallback)
+    /// </summary>
+    private (Kernel kernel, string provider) BuildKernel(string? requestApiKey, string? requestProvider)
     {
-        var mistralApiKey = _configuration["Grammar:Mistral:ApiKey"];
-        if (!string.IsNullOrEmpty(mistralApiKey))
+        // 1. Per-request key wins (UI-provided, stored per session)
+        var resolvedProvider = (requestProvider ?? string.Empty).Trim().ToLowerInvariant();
+
+        if (!string.IsNullOrEmpty(requestApiKey) && resolvedProvider != "local")
         {
-            return Kernel.CreateBuilder()
-                .AddOpenAIChatCompletion("mistral-large-latest", new Uri("https://api.mistral.ai/v1"), mistralApiKey)
-                .Build();
+            var mistralModel = _configuration["Grammar:Mistral:Model"] ?? "mistral-large-latest";
+            _logger.LogDebug("Using Mistral (per-request key) model {Model}", mistralModel);
+            return (
+                Kernel.CreateBuilder()
+                    .AddOpenAIChatCompletion(mistralModel, new Uri("https://api.mistral.ai/v1"), requestApiKey)
+                    .Build(),
+                "mistral"
+            );
         }
 
+        // 2. Configured Mistral key (user secrets / appsettings)
+        var configMistralKey = _configuration["Grammar:Mistral:ApiKey"];
+        if (!string.IsNullOrEmpty(configMistralKey) && resolvedProvider != "local")
+        {
+            var mistralModel = _configuration["Grammar:Mistral:Model"] ?? "mistral-large-latest";
+            _logger.LogDebug("Using Mistral (config key) model {Model}", mistralModel);
+            return (
+                Kernel.CreateBuilder()
+                    .AddOpenAIChatCompletion(mistralModel, new Uri("https://api.mistral.ai/v1"), configMistralKey)
+                    .Build(),
+                "mistral"
+            );
+        }
+
+        // 3. Local model via Ollama (OpenAI-compatible endpoint)
         var ollamaEndpoint = _configuration["Grammar:Ollama:Endpoint"] ?? "http://localhost:11434/v1";
         var ollamaModel = _configuration["Grammar:Ollama:Model"] ?? "llama3";
-        return Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion(ollamaModel, new Uri(ollamaEndpoint), "ollama")
-            .Build();
+        _logger.LogDebug("Using local model {Model} at {Endpoint}", ollamaModel, ollamaEndpoint);
+        return (
+            Kernel.CreateBuilder()
+                .AddOpenAIChatCompletion(ollamaModel, new Uri(ollamaEndpoint), "ollama")
+                .Build(),
+            "local"
+        );
     }
 }
