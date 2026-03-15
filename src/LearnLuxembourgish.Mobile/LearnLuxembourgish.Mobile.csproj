@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.70.1" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.82.0" />
   </ItemGroup>
 
   <ItemGroup>
