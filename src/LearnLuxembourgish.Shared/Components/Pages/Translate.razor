@@ -1,7 +1,9 @@
 @page "/translate"
 @using LearnLuxembourgish.Shared.Models
 @using LearnLuxembourgish.Shared.Http
+@using LearnLuxembourgish.Shared.Services
 @inject LearnLuxembourgish.Shared.Http.ApiClient Api
+@inject UserSettingsService Settings
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -150,6 +152,14 @@
     private string? SavedMessage { get; set; }
     private TranslationProgress? Progress { get; set; }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Settings.IsLoaded)
+        {
+            await Settings.LoadAsync();
+        }
+    }
+
     private async Task TranslateAsync()
     {
         if (string.IsNullOrWhiteSpace(InputText)) return;
@@ -173,7 +183,13 @@
             Progress.PercentComplete = 20;
             StateHasChanged();
 
-            var request = new TranslationRequest { Text = InputText, SourceLanguage = SourceLanguage };
+            var request = new TranslationRequest
+            {
+                Text = InputText,
+                SourceLanguage = SourceLanguage,
+                GrammarApiKey = Settings.MistralApiKey,
+                GrammarProvider = Settings.GrammarProvider
+            };
             var response = await Api.PostAsJsonAsync("api/translations", request);
 
             if (response.IsSuccessStatusCode)

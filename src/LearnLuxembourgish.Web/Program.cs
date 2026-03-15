@@ -22,6 +22,9 @@ builder.Services.AddCascadingAuthenticationState();
 // Register server-side token storage (scoped = per Blazor circuit/SignalR connection)
 builder.Services.AddScoped<TokenProvider>();
 
+// Per-circuit user settings (grammar provider, Mistral API key from UI)
+builder.Services.AddScoped<LearnLuxembourgish.Shared.Services.UserSettingsService>();
+
 // HttpClient for API calls with Aspire service discovery (no auth handler - handled by ApiClient)
 builder.Services.AddHttpClient("api", client =>
 {
