@@ -42,7 +42,10 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddSource("LearnLuxembourgish.Translation")
+                    .AddSource("LearnLuxembourgish.Audio")
+                    .AddSource("LearnLuxembourgish.Grammar");
             });
 
         builder.AddOpenTelemetryExporters();
