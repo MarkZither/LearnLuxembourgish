@@ -7,6 +7,8 @@ public class LearnLuxembourgishDbContext(DbContextOptions options) : DbContext(o
 {
     public DbSet<Translation> Translations => Set<Translation>();
     public DbSet<FlashCard> FlashCards => Set<FlashCard>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +34,34 @@ public class LearnLuxembourgishDbContext(DbContextOptions options) : DbContext(o
             entity.HasOne(e => e.Translation)
                 .WithMany(t => t.FlashCards)
                 .HasForeignKey(e => e.TranslationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.PublicId).IsUnique();
+            entity.HasIndex(e => e.Email);
+            entity.HasIndex(e => new { e.AuthProvider, e.ExternalUserId });
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.AuthProvider).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ExternalUserId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Role).HasMaxLength(50);
+            entity.Property(e => e.TimeZone).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.DeviceId).HasMaxLength(256);
+            entity.Property(e => e.RevocationReason).HasMaxLength(500);
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
