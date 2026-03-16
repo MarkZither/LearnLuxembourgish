@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Http.Resilience;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -18,7 +19,17 @@ public static class Extensions
         builder.Services.AddServiceDiscovery();
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            http.AddStandardResilienceHandler();
+            // LLM API calls (Mistral, Groq, Ollama) can take 30–120 seconds.
+            // The Aspire defaults (10s attempt, 30s total) are far too short for this app.
+            http.AddStandardResilienceHandler(options =>
+            {
+                options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(180);
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(300);
+                options.Retry.MaxRetryAttempts = 1;
+                options.Retry.Delay = TimeSpan.FromSeconds(2);
+                // Circuit breaker sampling duration must be >= 2× AttemptTimeout
+                options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(360);
+            });
             http.AddServiceDiscovery();
         });
         return builder;
