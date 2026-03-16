@@ -126,7 +126,9 @@
                 {
                     <div class="mb-3">
                         <h6>Grammar Explanation</h6>
-                        <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">@Result.GrammarExplanation</div>
+                        <div class="p-3 bg-light rounded">
+                            <MarkdownContent Content="@Result.GrammarExplanation" />
+                        </div>
                     </div>
                 }
 

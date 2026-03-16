@@ -1,0 +1,46 @@
+@using Markdig
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div @ref="_container" class="markdown-content">
+    @((MarkupString)_html)
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string? Content { get; set; }
+
+    private string _html = string.Empty;
+    private ElementReference _container;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(Content))
+        {
+            var pipeline = new MarkdownPipelineBuilder()
+                .UseAdvancedExtensions()
+                .UseMathematics()
+                .Build();
+            _html = Markdown.ToHtml(Content, pipeline);
+        }
+        else
+        {
+            _html = string.Empty;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!string.IsNullOrEmpty(_html))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("renderKatexInElement", _container);
+            }
+            catch
+            {
+                // KaTeX not loaded or JS interop unavailable
+            }
+        }
+    }
+}
