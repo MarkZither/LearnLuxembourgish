@@ -77,30 +77,59 @@ public class GrammarService : IGrammarService
 
     /// <summary>
     /// Resolves the kernel to use. Priority order:
-    ///   1. Explicit per-request apiKey (from UI settings) with provider hint
-    ///   2. Mistral API key from configuration (user secrets / env vars)
-    ///   3. Local Ollama model (fallback)
+    ///   1. Explicit per-request apiKey (from UI settings) with provider hint (groq / mistral)
+    ///   2. Groq API key from configuration (user secrets / env vars)
+    ///   3. Mistral API key from configuration (user secrets / env vars)
+    ///   4. Local Ollama model (fallback)
     /// </summary>
     private (Kernel kernel, string provider) BuildKernel(string? requestApiKey, string? requestProvider)
     {
-        // 1. Per-request key wins (UI-provided, stored per session)
         var resolvedProvider = (requestProvider ?? string.Empty).Trim().ToLowerInvariant();
 
+        // 1. Per-request key wins (UI-provided, stored per session)
         if (!string.IsNullOrEmpty(requestApiKey) && resolvedProvider != "local")
         {
-            var mistralModel = _configuration["Grammar:Mistral:Model"] ?? "mistral-large-latest";
-            _logger.LogDebug("Using Mistral (per-request key) model {Model}", mistralModel);
+            if (resolvedProvider == "groq")
+            {
+                var groqModel = _configuration["Grammar:Groq:Model"] ?? "llama-3.3-70b-versatile";
+                _logger.LogDebug("Using Groq (per-request key) model {Model}", groqModel);
+                return (
+                    Kernel.CreateBuilder()
+                        .AddOpenAIChatCompletion(groqModel, new Uri("https://api.groq.com/openai/v1"), requestApiKey)
+                        .Build(),
+                    "groq"
+                );
+            }
+            else
+            {
+                var mistralModel = _configuration["Grammar:Mistral:Model"] ?? "mistral-large-latest";
+                _logger.LogDebug("Using Mistral (per-request key) model {Model}", mistralModel);
+                return (
+                    Kernel.CreateBuilder()
+                        .AddOpenAIChatCompletion(mistralModel, new Uri("https://api.mistral.ai/v1"), requestApiKey)
+                        .Build(),
+                    "mistral"
+                );
+            }
+        }
+
+        // 2. Configured Groq key (user secrets / appsettings)
+        var configGroqKey = _configuration["Grammar:Groq:ApiKey"];
+        if (!string.IsNullOrEmpty(configGroqKey) && resolvedProvider != "local" && resolvedProvider != "mistral")
+        {
+            var groqModel = _configuration["Grammar:Groq:Model"] ?? "llama-3.3-70b-versatile";
+            _logger.LogDebug("Using Groq (config key) model {Model}", groqModel);
             return (
                 Kernel.CreateBuilder()
-                    .AddOpenAIChatCompletion(mistralModel, new Uri("https://api.mistral.ai/v1"), requestApiKey)
+                    .AddOpenAIChatCompletion(groqModel, new Uri("https://api.groq.com/openai/v1"), configGroqKey)
                     .Build(),
-                "mistral"
+                "groq"
             );
         }
 
-        // 2. Configured Mistral key (user secrets / appsettings)
+        // 3. Configured Mistral key (user secrets / appsettings)
         var configMistralKey = _configuration["Grammar:Mistral:ApiKey"];
-        if (!string.IsNullOrEmpty(configMistralKey) && resolvedProvider != "local")
+        if (!string.IsNullOrEmpty(configMistralKey) && resolvedProvider != "local" && resolvedProvider != "groq")
         {
             var mistralModel = _configuration["Grammar:Mistral:Model"] ?? "mistral-large-latest";
             _logger.LogDebug("Using Mistral (config key) model {Model}", mistralModel);
@@ -112,7 +141,7 @@ public class GrammarService : IGrammarService
             );
         }
 
-        // 3. Local model via Ollama (OpenAI-compatible endpoint)
+        // 4. Local model via Ollama (OpenAI-compatible endpoint)
         var ollamaEndpoint = _configuration["Grammar:Ollama:Endpoint"] ?? "http://localhost:11434/v1";
         var ollamaModel = _configuration["Grammar:Ollama:Model"] ?? "llama3";
         _logger.LogDebug("Using local model {Model} at {Endpoint}", ollamaModel, ollamaEndpoint);

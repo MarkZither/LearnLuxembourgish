@@ -12,8 +12,8 @@ public class TranslationRequest
     public string? GrammarApiKey { get; set; }
 
     /// <summary>
-    /// Grammar provider preference: "mistral" or "local".
-    /// Defaults to "mistral" when a key is present, otherwise "local".
+    /// Grammar provider preference: "mistral", "groq", or "local".
+    /// Defaults to "mistral" when a Mistral key is present, "groq" when a Groq key is present, otherwise "local".
     /// </summary>
     public string? GrammarProvider { get; set; }
 }

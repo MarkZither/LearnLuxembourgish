@@ -16,6 +16,7 @@ var ollamaEndpoint = builder.AddParameter("ollama-endpoint", "http://localhost:1
 // For local development, these use user secrets in the API/Web projects
 var deepLApiKey = builder.AddParameter("deepl-api-key", secret: true);
 var mistralApiKey = builder.AddParameter("mistral-api-key", secret: true);
+var groqApiKey = builder.AddParameter("groq-api-key", secret: true);
 
 // Azure AD parameters are REQUIRED - app will not start without proper authentication
 var azureAdTenantId = builder.AddParameter("azure-ad-tenant-id", secret: true);
@@ -28,6 +29,7 @@ var api = builder.AddProject<Projects.LearnLuxembourgish_Api>("api")
     .WithEnvironment("Translation__DeepL__ApiKey", deepLApiKey)
     .WithEnvironment("Translation__Mistral__ApiKey", mistralApiKey)
     .WithEnvironment("Grammar__Mistral__ApiKey", mistralApiKey)
+    .WithEnvironment("Grammar__Groq__ApiKey", groqApiKey)
     .WithEnvironment("Translation__Ollama__Endpoint", ollamaEndpoint)
     .WithEnvironment("Grammar__Ollama__Endpoint", ollamaEndpoint)
     .WithEnvironment("AzureAd__Instance", azureAdInstance)
@@ -42,14 +44,18 @@ var web = builder.AddProject<Projects.LearnLuxembourgish_Web>("web")
     .WithEnvironment("AzureAd__TenantId", azureAdTenantId)
     .WithEnvironment("AzureAd__ClientId", azureAdClientId);
 
-// Configure CORS AllowedOrigins dynamically based on Web's endpoint
+// Configure CORS AllowedOrigins dynamically based on Web's endpoints.
+// The https entry is only added when the web project actually exposes one
+// (WithExternalHttpEndpoints reads launchSettings; some profiles are http-only).
 api.WithEnvironment(context =>
 {
-    var webHttpEndpoint = web.GetEndpoint("http");
-    var webHttpsEndpoint = web.GetEndpoint("https");
+    context.EnvironmentVariables["AllowedOrigins__0"] = web.GetEndpoint("http").Property(EndpointProperty.Url);
 
-    context.EnvironmentVariables["AllowedOrigins__0"] = webHttpEndpoint.Property(EndpointProperty.Url);
-    context.EnvironmentVariables["AllowedOrigins__1"] = webHttpsEndpoint.Property(EndpointProperty.Url);
+    var hasHttps = web.Resource.Annotations.OfType<EndpointAnnotation>().Any(a =>
+        string.Equals(a.Name, "https", StringComparison.OrdinalIgnoreCase));
+
+    if (hasHttps)
+        context.EnvironmentVariables["AllowedOrigins__1"] = web.GetEndpoint("https").Property(EndpointProperty.Url);
 });
 
 builder.Build().Run();

@@ -15,10 +15,12 @@ public class UserSettingsService
     // localStorage key constants
     private const string KeyGrammarProvider = "settings_grammar_provider";
     private const string KeyMistralApiKey   = "settings_mistral_api_key";
+    private const string KeyGroqApiKey      = "settings_groq_api_key";
 
     // In-memory cache so we don't hit localStorage on every call within a circuit
     private string? _cachedProvider;
     private string? _cachedMistralApiKey;
+    private string? _cachedGroqApiKey;
     private bool _loaded = false;
 
     public UserSettingsService(IJSRuntime js, ILogger<UserSettingsService> logger)
@@ -37,9 +39,10 @@ public class UserSettingsService
         {
             _cachedProvider      = await _js.InvokeAsync<string?>("localStorage.getItem", KeyGrammarProvider);
             _cachedMistralApiKey = await _js.InvokeAsync<string?>("localStorage.getItem", KeyMistralApiKey);
+            _cachedGroqApiKey    = await _js.InvokeAsync<string?>("localStorage.getItem", KeyGroqApiKey);
             _loaded = true;
-            _logger.LogDebug("User settings loaded. Provider={Provider}, HasKey={HasKey}",
-                _cachedProvider, !string.IsNullOrEmpty(_cachedMistralApiKey));
+            _logger.LogDebug("User settings loaded. Provider={Provider}, HasMistralKey={HasMistralKey}, HasGroqKey={HasGroqKey}",
+                _cachedProvider, !string.IsNullOrEmpty(_cachedMistralApiKey), !string.IsNullOrEmpty(_cachedGroqApiKey));
         }
         catch (Exception ex)
         {
@@ -67,6 +70,16 @@ public class UserSettingsService
         set => _cachedMistralApiKey = value;
     }
 
+    /// <summary>
+    /// Groq API key provided by the user via the Settings screen.
+    /// Null/empty means fall back to the server-configured key (or local model).
+    /// </summary>
+    public string? GroqApiKey
+    {
+        get => string.IsNullOrWhiteSpace(_cachedGroqApiKey) ? null : _cachedGroqApiKey;
+        set => _cachedGroqApiKey = value;
+    }
+
     public bool IsLoaded => _loaded;
 
     /// <summary>
@@ -78,6 +91,7 @@ public class UserSettingsService
         {
             await SetOrRemoveAsync(KeyGrammarProvider, _cachedProvider);
             await SetOrRemoveAsync(KeyMistralApiKey, _cachedMistralApiKey);
+            await SetOrRemoveAsync(KeyGroqApiKey, _cachedGroqApiKey);
             _logger.LogInformation("User settings saved");
         }
         catch (Exception ex)

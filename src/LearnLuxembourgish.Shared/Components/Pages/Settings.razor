@@ -25,7 +25,7 @@
             </MudCardHeader>
             <MudCardContent>
                 <MudText Typo="Typo.body2" Class="mb-4">
-                    Choose between the Mistral AI API (cloud) or a locally hosted model via Ollama.
+                    Choose between Mistral AI, Groq (fast cloud inference), or a locally hosted model via Ollama.
                     The local option requires Ollama running on your machine.
                 </MudText>
 
@@ -33,6 +33,11 @@
                     <MudRadio T="string" Value="@("mistral")" Color="Color.Primary">
                         <MudText>
                             <strong>Mistral AI</strong> — cloud API, highest quality grammar breakdowns
+                        </MudText>
+                    </MudRadio>
+                    <MudRadio T="string" Value="@("groq")" Color="Color.Tertiary" Class="mt-2">
+                        <MudText>
+                            <strong>Groq</strong> — cloud API, very fast inference
                         </MudText>
                     </MudRadio>
                     <MudRadio T="string" Value="@("local")" Color="Color.Secondary" Class="mt-2">
@@ -64,11 +69,43 @@
                     <MudTextField T="string"
                                   Label="Mistral API Key"
                                   @bind-Value="_mistralApiKey"
-                                  InputType="@(_showKey ? InputType.Text : InputType.Password)"
+                                  InputType="@(_showMistralKey ? InputType.Text : InputType.Password)"
                                   Adornment="Adornment.End"
-                                  AdornmentIcon="@(_showKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                                  OnAdornmentClick="@(() => _showKey = !_showKey)"
+                                  AdornmentIcon="@(_showMistralKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="@(() => _showMistralKey = !_showMistralKey)"
                                   Placeholder="sk-..."
+                                  HelperText="Stored in browser localStorage only"
+                                  FullWidth="true"
+                                  Variant="Variant.Outlined" />
+                </MudCardContent>
+            </MudCard>
+        }
+
+        @if (_provider == "groq")
+        {
+            <MudCard Elevation="2" Class="mb-4">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Groq API Key</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        Enter your
+                        <MudLink Href="https://console.groq.com/keys" Target="_blank">Groq API key</MudLink>.
+                        If left blank, the server-configured key is used (available in local dev via user secrets).
+                        The key is stored only in your browser's localStorage — it is never sent to our servers
+                        except as part of the grammar analysis request over HTTPS.
+                    </MudText>
+
+                    <MudTextField T="string"
+                                  Label="Groq API Key"
+                                  @bind-Value="_groqApiKey"
+                                  InputType="@(_showGroqKey ? InputType.Text : InputType.Password)"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showGroqKey ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="@(() => _showGroqKey = !_showGroqKey)"
+                                  Placeholder="gsk_..."
                                   HelperText="Stored in browser localStorage only"
                                   FullWidth="true"
                                   Variant="Variant.Outlined" />
@@ -94,9 +131,11 @@
 @code {
     private bool _loaded;
     private bool _saving;
-    private bool _showKey;
+    private bool _showMistralKey;
+    private bool _showGroqKey;
     private string _provider = "mistral";
     private string? _mistralApiKey;
+    private string? _groqApiKey;
     private string? _saveMessage;
     private Severity _saveSeverity = Severity.Success;
 
@@ -107,6 +146,7 @@
             await UserSettings.LoadAsync();
             _provider      = UserSettings.GrammarProvider;
             _mistralApiKey = UserSettings.MistralApiKey;
+            _groqApiKey    = UserSettings.GroqApiKey;
             _loaded = true;
             StateHasChanged();
         }
@@ -122,6 +162,7 @@
         {
             UserSettings.GrammarProvider = _provider;
             UserSettings.MistralApiKey   = _mistralApiKey;
+            UserSettings.GroqApiKey      = _groqApiKey;
             await UserSettings.SaveAsync();
             _saveSeverity = Severity.Success;
             _saveMessage = "Settings saved successfully.";

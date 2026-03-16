@@ -187,7 +187,7 @@
             {
                 Text = InputText,
                 SourceLanguage = SourceLanguage,
-                GrammarApiKey = Settings.MistralApiKey,
+                GrammarApiKey = Settings.GrammarProvider == "groq" ? Settings.GroqApiKey : Settings.MistralApiKey,
                 GrammarProvider = Settings.GrammarProvider
             };
             var response = await Api.PostAsJsonAsync("api/translations", request);
