@@ -9,9 +9,9 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/deepwiki-open-dotnet.AppHost/bin/Debug/net10.0/deepwiki-open-dotnet.AppHost.dll",
+            "program": "${workspaceFolder}/src/LearnLuxembourgish.AppHost/bin/Debug/net10.0/LearnLuxembourgish.AppHost.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/Lea.AppHost",
+            "cwd": "${workspaceFolder}/src/LearnLuxembourgish.AppHost",
             "stopAtEntry": false,
             "serverReadyAction": {
                 "action": "openExternally",
