@@ -31,6 +31,24 @@
                 "clear": true
             },
             "problemMatcher": []
+        },
+        {
+            "label": "build-mobile-windows",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/LearnLuxembourgish.Mobile/LearnLuxembourgish.Mobile.csproj",
+                "-f",
+                "net10.0-windows10.0.19041.0",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$msCompile"
         }
     ]
 }

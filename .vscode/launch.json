@@ -4,11 +4,45 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-                {
+        {
             "name": "Aspire: AppHost (Dashboard + All Services)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/LearnLuxembourgish.AppHost/bin/Debug/net10.0/LearnLuxembourgish.AppHost.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/LearnLuxembourgish.AppHost",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s"
+            },
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            "name": "MAUI: Windows",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-mobile-windows",
+            "program": "${workspaceFolder}/src/LearnLuxembourgish.Mobile/bin/Debug/net10.0-windows10.0.19041.0/win-x64/LearnLuxembourgish.Mobile.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/LearnLuxembourgish.Mobile/bin/Debug/net10.0-windows10.0.19041.0/win-x64",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            // Used by the compound — AppHost without its own pre-build (build-mobile-windows builds first)
+            "name": "AppHost (compound)",
+            "type": "coreclr",
+            "request": "launch",
             "program": "${workspaceFolder}/src/LearnLuxembourgish.AppHost/bin/Debug/net10.0/LearnLuxembourgish.AppHost.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/LearnLuxembourgish.AppHost",
@@ -30,6 +64,14 @@
             "request": "attach",
             "preLaunchTask": "show-apphost-pid",
             "processId": "${command:pickProcess}"
-        },
+        }
+    ],
+    "compounds": [
+        {
+            "name": "MAUI Windows + AppHost",
+            "configurations": ["MAUI: Windows", "AppHost (compound)"],
+            "preLaunchTask": "build-mobile-windows",
+            "stopAll": true
+        }
     ]
 }
