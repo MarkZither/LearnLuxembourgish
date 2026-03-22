@@ -29,6 +29,9 @@
   <ItemGroup>
     <!-- Embed appsettings so MauiProgram can read it at runtime -->
     <EmbeddedResource Include="appsettings.json" LogicalName="appsettings.json" />
+    <!-- Release overrides (gitignored) — created locally or by CI from secrets -->
+    <EmbeddedResource Condition="'$(Configuration)' == 'Release' and Exists('appsettings.release.json')"
+                      Include="appsettings.release.json" LogicalName="appsettings.release.json" />
   </ItemGroup>
 
   <ItemGroup>

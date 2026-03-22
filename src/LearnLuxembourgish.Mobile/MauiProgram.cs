@@ -30,6 +30,13 @@ public static class MauiProgram
         if (stream is not null)
             builder.Configuration.AddJsonStream(stream);
 
+        // In Release builds, load appsettings.release.json if it was embedded.
+        // This file is gitignored and injected by CI (or created locally) to
+        // supply the production API URL without committing it to source control.
+        using var releaseStream = assembly.GetManifestResourceStream("appsettings.release.json");
+        if (releaseStream is not null)
+            builder.Configuration.AddJsonStream(releaseStream);
+
         builder.Services.AddMauiBlazorWebView();
 
         // MudBlazor UI services

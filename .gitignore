@@ -421,3 +421,14 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Android signing keystores — never commit these
+*.jks
+*.keystore
+
+# Mobile release appsettings — created locally or by CI from secrets, never committed
+src/LearnLuxembourgish.Mobile/appsettings.release.json
+
+# SQLite WAL / shared-memory sidecar files
+*.db-shm
+*.db-wal
