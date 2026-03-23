@@ -429,6 +429,12 @@ FodyWeavers.xsd
 # Mobile release appsettings — created locally or by CI from secrets, never committed
 src/LearnLuxembourgish.Mobile/appsettings.release.json
 
+# Docker runtime secrets — copy from .env.template and fill in; never commit
+.env
+
 # SQLite WAL / shared-memory sidecar files
 *.db-shm
 *.db-wal
+
+# Docker compose runtime data (SQLite db volume mount)
+/data/
