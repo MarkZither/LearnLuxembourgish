@@ -64,6 +64,21 @@
             "request": "attach",
             "preLaunchTask": "show-apphost-pid",
             "processId": "${command:pickProcess}"
+        },
+        {
+            // Uses the .NET MAUI extension debugger — prompts to pick an emulator/device.
+            // After launching, the Android emulator reaches the API via 10.0.2.2 (host loopback).
+            "name": "MAUI: Android",
+            "type": "maui",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/LearnLuxembourgish.Mobile/LearnLuxembourgish.Mobile.csproj"
+        },
+        {
+            // Same as above but used in the compound (no duplicate device picker)
+            "name": "MAUI: Android (compound)",
+            "type": "maui",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/LearnLuxembourgish.Mobile/LearnLuxembourgish.Mobile.csproj"
         }
     ],
     "compounds": [
@@ -71,6 +86,13 @@
             "name": "MAUI Windows + AppHost",
             "configurations": ["MAUI: Windows", "AppHost (compound)"],
             "preLaunchTask": "build-mobile-windows",
+            "stopAll": true
+        },
+        {
+            // Starts Aspire (API + dashboard) and the MAUI Android debugger together.
+            // Start AppHost first so the API is up before the app hits 10.0.2.2.
+            "name": "MAUI Android + AppHost",
+            "configurations": ["AppHost (compound)", "MAUI: Android (compound)"],
             "stopAll": true
         }
     ]
