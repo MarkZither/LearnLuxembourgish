@@ -10,11 +10,11 @@
     <Nullable>enable</Nullable>
 
     <!-- App settings -->
-    <ApplicationId>lu.learnluxembourgish.mobile</ApplicationId>
+    <ApplicationId>lu.letzsprooch.app</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidMinSdkVersion>24</AndroidMinSdkVersion>
-    <ApplicationTitle>Learn Luxembourgish</ApplicationTitle>
+    <ApplicationTitle>LëtzSprooch</ApplicationTitle>
     <!-- Unpackaged for Debug so the exe is directly runnable; Release keeps MSIX -->
     <WindowsPackageType Condition="'$(Configuration)' == 'Debug'">None</WindowsPackageType>
   </PropertyGroup>

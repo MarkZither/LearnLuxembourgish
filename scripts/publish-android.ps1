@@ -10,7 +10,7 @@
 
     Before running for the first time:
       1. Generate a keystore (one-time):
-            keytool -genkeypair -v -keystore learnlux.jks -alias learnlux `
+            keytool -genkeypair -v -keystore letzsprooch.jks -alias letzsprooch `
                     -keyalg RSA -keysize 2048 -validity 10000
          Keep this file somewhere SAFE and off the repo.
 
@@ -19,9 +19,9 @@
 
       3. Call this script with the keystore details:
             ./scripts/publish-android.ps1 `
-                -KeystorePath  "C:\secrets\learnlux.jks" `
+                -KeystorePath  "C:\secrets\letzsprooch.jks" `
                 -KeystorePass  "your-store-pass" `
-                -KeyAlias      "learnlux" `
+                -KeyAlias      "letzsprooch" `
                 -KeyPass       "your-key-pass"
 
 .PARAMETER KeystorePath
