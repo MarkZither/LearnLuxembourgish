@@ -12,7 +12,7 @@ public class GrammarService : IGrammarService
 
     private const string SystemPrompt =
         "You are an expert Luxembourgish (Lëtzebuergesch) language teacher. " +
-        "Given an original text and its Luxembourgish translation, provide a structured grammatical breakdown. " +
+        "Given an original text and its Luxembourgish translation (produced by DeepL), provide a structured grammatical breakdown and translation review. " +
         "Your response must cover the following sections:\n" +
         "1. **Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
         "Explain any gender that may surprise English or Polish speakers.\n" +
@@ -20,7 +20,15 @@ public class GrammarService : IGrammarService
         "3. **Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
         "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
         "Give the affected words and the rule that governs them.\n" +
-        "4. **Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.\n" +
+        "4. **Inversion Rule (V2 Word Order)** – Identify any fronted elements (adverbs, time expressions, objects, prepositional phrases). " +
+        "For each, show whether the verb and subject correctly invert as required by Luxembourgish V2 word order (i.e. the finite verb must remain in second position). " +
+        "Flag any missing or incorrect inversion in the translation.\n" +
+        "5. **Verbs of Motion** – List every verb of motion in the translation. For each, confirm whether the correct Luxembourgish verb is used for the mode of transport or movement " +
+        "(e.g., fueren for vehicle/train/bus travel, fléien for flying, goen/ginn for walking on foot, schwammen for swimming, reeden for cycling, fueren/kommen for general directed motion). " +
+        "Flag any where a different verb would be more natural or correct.\n" +
+        "6. **Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.\n" +
+        "7. **Translation Review** – Using the grammar rules above, assess whether the DeepL translation is accurate and natural. " +
+        "Highlight any errors, awkward phrasings, or improvements. If corrections are needed, provide a revised version with a brief explanation.\n" +
         "Format each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
 
     public GrammarService(IConfiguration configuration, ILogger<GrammarService> logger)
@@ -52,8 +60,8 @@ public class GrammarService : IGrammarService
             history.AddSystemMessage(SystemPrompt);
             history.AddUserMessage(
                 $"Original text ({(sourceText.Length > 0 ? "source" : "unknown")}): {sourceText}" +
-                $"\n\nLuxembourgish translation: {translatedText}" +
-                $"\n\nPlease provide the full grammatical breakdown.");
+                $"\n\nLuxembourgish translation (from DeepL): {translatedText}" +
+                $"\n\nPlease provide the full grammatical breakdown and translation review.");
 
             var response = await chat.GetChatMessageContentAsync(history, cancellationToken: cancellationToken);
 
