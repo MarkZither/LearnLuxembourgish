@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using LearnLuxembourgish.Api.Services;
 using LearnLuxembourgish.Data.Shared;
 using LearnLuxembourgish.Data.Shared.Entities;
@@ -71,6 +73,33 @@ public class TranslationsController : ControllerBase
         _logger.LogInformation("Audio and grammar generation completed. Audio: {HasAudio}, Grammar: {HasGrammar}",
             result.AudioUrl != null, result.GrammarExplanation != null);
 
+        if (result.GrammarExplanation is not null)
+        {
+            var infinitives = ExtractVerbInfinitives(result.GrammarExplanation);
+            // Strip the verbs-json block from the markdown before rendering
+            result.GrammarExplanation = Regex.Replace(
+                result.GrammarExplanation,
+                @"\n?```verbs-json\s*[\s\S]*?```\n?",
+                string.Empty,
+                RegexOptions.Singleline).Trim();
+            if (infinitives is { Count: > 0 })
+            {
+                _logger.LogInformation("Fetching conjugation tables for {Count} verbs", infinitives.Count);
+                try
+                {
+                    result.VerbConjugations = await _grammarService.ConjugateVerbsAsync(
+                        infinitives,
+                        apiKey: request.GrammarApiKey,
+                        provider: request.GrammarProvider,
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Verb conjugation call failed, continuing without conjugations");
+                }
+            }
+        }
+
         // Persist if user is authenticated
         if (User.Identity?.IsAuthenticated == true)
         {
@@ -94,6 +123,22 @@ public class TranslationsController : ControllerBase
         _logger.LogInformation("Translation request completed successfully");
         return Ok(result);
     }
+
+    private static List<string>? ExtractVerbInfinitives(string grammarExplanation)
+    {
+        var match = Regex.Match(grammarExplanation, @"```verbs-json\s*(\[[\s\S]*?\])\s*```", RegexOptions.Singleline);
+        if (!match.Success) return null;
+        try
+        {
+            var verbs = JsonSerializer.Deserialize<List<VerbFormInSentence>>(
+                match.Groups[1].Value.Trim(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return verbs?.Select(v => v.Infinitive).Distinct().ToList();
+        }
+        catch { return null; }
+    }
+
+    private record VerbFormInSentence(string Infinitive, string FormUsed, string English);
 
     [HttpGet]
     [Authorize]

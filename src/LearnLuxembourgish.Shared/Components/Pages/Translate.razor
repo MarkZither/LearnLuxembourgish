@@ -131,6 +131,39 @@
                     </div>
                 }
 
+                @if (Result.VerbConjugations is { Count: > 0 })
+                {
+                    <div class="mb-3">
+                        <h6>Verb Conjugations</h6>
+                        @foreach (var table in Result.VerbConjugations)
+                        {
+                            <details class="mb-2 border rounded">
+                                <summary class="p-2 bg-light" style="cursor:pointer;list-style:none;user-select:none">
+                                    <strong>@table.Infinitive</strong>
+                                    <span class="text-muted ms-2 fw-normal">@table.English</span>
+                                </summary>
+                                <div class="p-3">
+                                    @foreach (var tense in table.Tenses)
+                                    {
+                                        <p class="mb-1 mt-2 small fw-bold text-secondary">@tense.Name</p>
+                                        <table class="table table-sm table-bordered mb-3">
+                                            <tbody>
+                                                @foreach (var form in tense.Forms)
+                                                {
+                                                    <tr>
+                                                        <td class="fw-bold text-nowrap" style="width:35%">@form.Key</td>
+                                                        <td>@form.Value</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </div>
+                            </details>
+                        }
+                    </div>
+                }
+
                 <button class="btn btn-success" @onclick="SaveAsFlashCard">
                     Save as Flash Card
                 </button>
@@ -214,6 +247,8 @@
                         Progress.CompletedSteps.Add("✓ Audio pronunciation ready");
                     if (Result.GrammarExplanation is not null)
                         Progress.CompletedSteps.Add("✓ Grammar explanation ready");
+                    if (Result.VerbConjugations is { Count: > 0 })
+                        Progress.CompletedSteps.Add($"✓ Verb conjugation tables ready ({Result.VerbConjugations.Count} verbs)");
                     StateHasChanged();
                     await Task.Delay(300);
                 }

@@ -20,4 +20,10 @@ public interface IGrammarService
         string? apiKey = null,
         string? provider = null,
         CancellationToken cancellationToken = default);
+
+    Task<List<VerbConjugationTable>?> ConjugateVerbsAsync(
+        IEnumerable<string> infinitives,
+        string? apiKey = null,
+        string? provider = null,
+        CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using LearnLuxembourgish.Shared.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -16,7 +19,9 @@ public class GrammarService : IGrammarService
         "Your response must cover the following sections:\n" +
         "1. **Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
         "Explain any gender that may surprise English or Polish speakers.\n" +
-        "2. **Verbs** – Identify every verb, its infinitive form, tense, conjugation pattern, and any irregular forms.\n" +
+        "2. **Verbs** – Identify every verb. For each, state its infinitive form, the exact conjugated form used in the sentence, tense, conjugation pattern, and any irregular forms. " +
+        "After the prose, output a fenced code block tagged `verbs-json` (for programmatic extraction) listing every verb found:\n" +
+        "```verbs-json\n[{\"infinitive\":\"goen\",\"formUsed\":\"geet\",\"english\":\"to go (on foot)\"}]\n```\n" +
         "3. **Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
         "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
         "Give the affected words and the rule that governs them.\n" +
@@ -30,6 +35,17 @@ public class GrammarService : IGrammarService
         "7. **Translation Review** – Using the grammar rules above, assess whether the DeepL translation is accurate and natural. " +
         "Highlight any errors, awkward phrasings, or improvements. If corrections are needed, provide a revised version with a brief explanation.\n" +
         "Format each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
+
+    private const string ConjugationSystemPrompt =
+        "You are an expert Luxembourgish grammar reference. " +
+        "Given a JSON array of verb infinitives, return a complete conjugation table for each verb. " +
+        "Output ONLY valid JSON — no markdown fences, no prose, no extra text whatsoever. " +
+        "Structure: a JSON array of objects, each with: " +
+        "\"infinitive\" (string), \"english\" (brief English gloss, e.g. \"to go (on foot)\"), \"tenses\" (array of tense objects). " +
+        "Each tense object has: \"name\" (tense name with English in parentheses) and " +
+        "\"forms\" (object with exactly these keys: \"ech\", \"du\", \"hien/si/es\", \"mir\", \"dir\", \"si\"). " +
+        "Include exactly these tenses for every verb: \"Präsens (Present)\", \"Perfekt (Present Perfect)\", \"Futur I (Future)\". " +
+        "Use the correct auxiliary verb + past participle for Perfekt (sinn for motion verbs, hunn for transitive verbs).";
 
     public GrammarService(IConfiguration configuration, ILogger<GrammarService> logger)
     {
@@ -81,6 +97,62 @@ public class GrammarService : IGrammarService
             activity?.SetTag("error", ex.Message);
             return null;
         }
+    }
+
+    public async Task<List<VerbConjugationTable>?> ConjugateVerbsAsync(
+        IEnumerable<string> infinitives,
+        string? apiKey = null,
+        string? provider = null,
+        CancellationToken cancellationToken = default)
+    {
+        var verbList = infinitives.Distinct().ToList();
+        if (verbList.Count == 0) return null;
+
+        using var activity = ActivitySource.StartActivity("ConjugateVerbs");
+        activity?.SetTag("verb.count", verbList.Count);
+        var startTime = Stopwatch.GetTimestamp();
+
+        try
+        {
+            _logger.LogInformation("Generating conjugation tables for {Count} verbs", verbList.Count);
+            var (kernel, resolvedProvider) = BuildKernel(apiKey, provider);
+            activity?.SetTag("provider", resolvedProvider);
+
+            var chat = kernel.GetRequiredService<IChatCompletionService>();
+            var history = new ChatHistory();
+            history.AddSystemMessage(ConjugationSystemPrompt);
+            history.AddUserMessage(JsonSerializer.Serialize(verbList));
+
+            var response = await chat.GetChatMessageContentAsync(history, cancellationToken: cancellationToken);
+            var json = ExtractJsonArray(response.Content ?? string.Empty);
+
+            var result = JsonSerializer.Deserialize<List<VerbConjugationTable>>(
+                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var elapsed = Stopwatch.GetElapsedTime(startTime);
+            _logger.LogInformation("Conjugation tables completed in {ElapsedMs}ms via {Provider}",
+                elapsed.TotalMilliseconds, resolvedProvider);
+            activity?.SetTag("success", true);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            var elapsed = Stopwatch.GetElapsedTime(startTime);
+            _logger.LogWarning(ex, "Conjugation tables failed after {ElapsedMs}ms", elapsed.TotalMilliseconds);
+            activity?.SetTag("success", false);
+            return null;
+        }
+    }
+
+    private static string ExtractJsonArray(string content)
+    {
+        content = content.Trim();
+        var fenceMatch = Regex.Match(content, @"```(?:json)?\s*([\s\S]*?)```", RegexOptions.Singleline);
+        if (fenceMatch.Success)
+            content = fenceMatch.Groups[1].Value.Trim();
+        var start = content.IndexOf('[');
+        var end = content.LastIndexOf(']');
+        return start >= 0 && end > start ? content[start..(end + 1)] : content;
     }
 
     /// <summary>

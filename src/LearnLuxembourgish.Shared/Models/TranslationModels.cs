@@ -28,6 +28,7 @@ public class TranslationResult
     public string? AudioError { get; set; }
     public string? GrammarExplanation { get; set; }
     public required string Provider { get; set; }
+    public List<VerbConjugationTable>? VerbConjugations { get; set; }
 }
 
 public class TranslationProgress
@@ -55,4 +56,17 @@ public class FlashCardDto
     public DateTime CreatedAt { get; set; }
     public DateTime? LastReviewedAt { get; set; }
     public int ReviewCount { get; set; }
+}
+
+public class VerbConjugationTable
+{
+    public required string Infinitive { get; set; }
+    public required string English { get; set; }
+    public List<VerbTenseTable> Tenses { get; set; } = [];
+}
+
+public class VerbTenseTable
+{
+    public required string Name { get; set; }
+    public Dictionary<string, string> Forms { get; set; } = [];
 }
