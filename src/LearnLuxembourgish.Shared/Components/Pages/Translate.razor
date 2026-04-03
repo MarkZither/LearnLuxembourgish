@@ -33,6 +33,28 @@
                           @bind="InputText"></textarea>
             </div>
 
+            <div class="mb-3">
+                <label class="form-label fw-bold">Grammar Aspects</label>
+                <div class="text-muted small mb-2">Select which aspects to include in the grammar explanation. Leave all unchecked for the full breakdown.</div>
+                <div class="row row-cols-1 row-cols-sm-2 g-1">
+                    @foreach (var aspect in GrammarAspectOptions)
+                    {
+                        <div class="col">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="aspect-@aspect.Key"
+                                       checked="@SelectedAspects.Contains(aspect.Key)"
+                                       @onchange="@(e => ToggleAspect(aspect.Key, (bool)e.Value!))" />
+                                <label class="form-check-label" for="aspect-@aspect.Key">@aspect.Label</label>
+                                @if (aspect.Description is not null)
+                                {
+                                    <div class="text-muted" style="font-size:0.75rem">@aspect.Description</div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
             <button class="btn btn-primary btn-lg" @onclick="TranslateAsync" disabled="@IsLoading">
                 @if (IsLoading)
                 {
@@ -180,11 +202,30 @@
 @code {
     private string SourceLanguage { get; set; } = "EN";
     private string InputText { get; set; } = string.Empty;
+    private HashSet<string> SelectedAspects { get; set; } =
+        ["nouns-genders", "eifeler-regel", "inversion", "verbs-of-motion", "other-grammar"];
     private TranslationResult? Result { get; set; }
     private bool IsLoading { get; set; }
     private string? ErrorMessage { get; set; }
     private string? SavedMessage { get; set; }
     private TranslationProgress? Progress { get; set; }
+
+    private record GrammarAspect(string Key, string Label, string? Description);
+
+    private static readonly GrammarAspect[] GrammarAspectOptions =
+    [
+        new("nouns-genders",     "Nouns & Genders",           "Gender, articles, and cases for each noun"),
+        new("eifeler-regel",     "Eifeler Regel",             "Where the word-final -n is dropped or added"),
+        new("inversion",         "Inversion (V2 Word Order)", "Subject-verb inversion after fronted elements"),
+        new("verbs-of-motion",   "Verbs of Motion",           "Correct verb for each mode of travel"),
+        new("other-grammar",     "Other Grammar Notes",       "Prepositions, idiomatic expressions, and more"),
+    ];
+
+    private void ToggleAspect(string key, bool isChecked)
+    {
+        if (isChecked) SelectedAspects.Add(key);
+        else SelectedAspects.Remove(key);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -222,7 +263,8 @@
                 Text = InputText,
                 SourceLanguage = SourceLanguage,
                 GrammarApiKey = Settings.GrammarProvider == "groq" ? Settings.GroqApiKey : Settings.MistralApiKey,
-                GrammarProvider = Settings.GrammarProvider
+                GrammarProvider = Settings.GrammarProvider,
+                GrammarAspects = SelectedAspects.Count > 0 ? [.. SelectedAspects] : null
             };
             var response = await Api.PostAsJsonAsync("api/translations", request);
 

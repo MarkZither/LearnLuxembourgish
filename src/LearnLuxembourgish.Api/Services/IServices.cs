@@ -19,6 +19,7 @@ public interface IGrammarService
         string translatedText,
         string? apiKey = null,
         string? provider = null,
+        IEnumerable<string>? grammarAspects = null,
         CancellationToken cancellationToken = default);
 
     Task<List<VerbConjugationTable>?> ConjugateVerbsAsync(

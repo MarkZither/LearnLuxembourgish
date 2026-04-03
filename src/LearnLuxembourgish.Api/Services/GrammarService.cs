@@ -13,28 +13,54 @@ public class GrammarService : IGrammarService
     private readonly ILogger<GrammarService> _logger;
     private static readonly ActivitySource ActivitySource = new("LearnLuxembourgish.Grammar");
 
-    private const string SystemPrompt =
+    private static readonly string SystemPromptBase =
         "You are an expert Luxembourgish (Lëtzebuergesch) language teacher. " +
         "Given an original text and its Luxembourgish translation (produced by DeepL), provide a structured grammatical breakdown and translation review. " +
-        "Your response must cover the following sections:\n" +
-        "1. **Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
-        "Explain any gender that may surprise English or Polish speakers.\n" +
-        "2. **Verbs** – Identify every verb. For each, state its infinitive form, the exact conjugated form used in the sentence, tense, conjugation pattern, and any irregular forms. " +
-        "After the prose, output a fenced code block tagged `verbs-json` (for programmatic extraction) listing every verb found:\n" +
+        "Always include a **Verbs** section identifying every verb with its infinitive form, conjugated form used, tense, conjugation pattern, and any irregular forms. " +
+        "After the verbs prose, output a fenced code block tagged `verbs-json` (for programmatic extraction) listing every verb found:\n" +
         "```verbs-json\n[{\"infinitive\":\"goen\",\"formUsed\":\"geet\",\"english\":\"to go (on foot)\"}]\n```\n" +
-        "3. **Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
-        "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
-        "Give the affected words and the rule that governs them.\n" +
-        "4. **Inversion Rule (V2 Word Order)** – Identify any fronted elements (adverbs, time expressions, objects, prepositional phrases). " +
-        "For each, show whether the verb and subject correctly invert as required by Luxembourgish V2 word order (i.e. the finite verb must remain in second position). " +
-        "Flag any missing or incorrect inversion in the translation.\n" +
-        "5. **Verbs of Motion** – List every verb of motion in the translation. For each, confirm whether the correct Luxembourgish verb is used for the mode of transport or movement " +
-        "(e.g., fueren for vehicle/train/bus travel, fléien for flying, goen/ginn for walking on foot, schwammen for swimming, reeden for cycling, fueren/kommen for general directed motion). " +
-        "Flag any where a different verb would be more natural or correct.\n" +
-        "6. **Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.\n" +
-        "7. **Translation Review** – Using the grammar rules above, assess whether the DeepL translation is accurate and natural. " +
-        "Highlight any errors, awkward phrasings, or improvements. If corrections are needed, provide a revised version with a brief explanation.\n" +
-        "Format each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
+        "Always include a final **Translation Review** section that assesses whether the DeepL translation is accurate and natural, " +
+        "highlights any errors or awkward phrasings, and provides a revised version with explanation if corrections are needed. ";
+
+    private static readonly Dictionary<string, string> AspectPrompts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["nouns-genders"] =
+            "**Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
+            "Explain any gender that may surprise English or Polish speakers.",
+        ["eifeler-regel"] =
+            "**Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
+            "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
+            "Give the affected words and the rule that governs them.",
+        ["inversion"] =
+            "**Inversion Rule (V2 Word Order)** – Identify any fronted elements (adverbs, time expressions, objects, prepositional phrases). " +
+            "For each, show whether the verb and subject correctly invert as required by Luxembourgish V2 word order (i.e. the finite verb must remain in second position). " +
+            "Flag any missing or incorrect inversion in the translation.",
+        ["verbs-of-motion"] =
+            "**Verbs of Motion** – List every verb of motion in the translation. For each, confirm whether the correct Luxembourgish verb is used for the mode of transport or movement " +
+            "(e.g., fueren for vehicle/train/bus travel, fléien for flying, goen/ginn for walking on foot, schwammen for swimming, reeden for cycling, fueren/kommen for general directed motion). " +
+            "Flag any where a different verb would be more natural or correct.",
+        ["other-grammar"] =
+            "**Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.",
+    };
+
+    /// <summary>All aspect keys in default display order.</summary>
+    private static readonly IReadOnlyList<string> AllAspectKeys =
+        ["nouns-genders", "eifeler-regel", "inversion", "verbs-of-motion", "other-grammar"];
+
+    private static string BuildSystemPrompt(IEnumerable<string>? grammarAspects)
+    {
+        var keys = grammarAspects?.Where(k => AspectPrompts.ContainsKey(k)).ToList();
+        var effectiveKeys = (keys is { Count: > 0 }) ? keys : AllAspectKeys;
+
+        var sections = effectiveKeys
+            .Select((k, i) => $"{i + 1}. {AspectPrompts[k]}")
+            .ToList();
+
+        return SystemPromptBase +
+            "Your response must cover the following sections:\n" +
+            string.Join("\n", sections) +
+            "\nFormat each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
+    }
 
     private const string ConjugationSystemPrompt =
         "You are an expert Luxembourgish grammar reference. " +
@@ -58,6 +84,7 @@ public class GrammarService : IGrammarService
         string translatedText,
         string? apiKey = null,
         string? provider = null,
+        IEnumerable<string>? grammarAspects = null,
         CancellationToken cancellationToken = default)
     {
         using var activity = ActivitySource.StartActivity("ExplainGrammar");
@@ -73,11 +100,11 @@ public class GrammarService : IGrammarService
 
             var chat = kernel.GetRequiredService<IChatCompletionService>();
             var history = new ChatHistory();
-            history.AddSystemMessage(SystemPrompt);
+            history.AddSystemMessage(BuildSystemPrompt(grammarAspects));
             history.AddUserMessage(
                 $"Original text ({(sourceText.Length > 0 ? "source" : "unknown")}): {sourceText}" +
                 $"\n\nLuxembourgish translation (from DeepL): {translatedText}" +
-                $"\n\nPlease provide the full grammatical breakdown and translation review.");
+                $"\n\nPlease provide the grammatical breakdown for the selected sections.");
 
             var response = await chat.GetChatMessageContentAsync(history, cancellationToken: cancellationToken);
 

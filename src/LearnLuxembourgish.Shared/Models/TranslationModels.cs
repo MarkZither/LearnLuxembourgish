@@ -16,6 +16,12 @@ public class TranslationRequest
     /// Defaults to "mistral" when a Mistral key is present, "groq" when a Groq key is present, otherwise "local".
     /// </summary>
     public string? GrammarProvider { get; set; }
+
+    /// <summary>
+    /// Grammar aspects to include in the explanation. When null or empty, all aspects are included.
+    /// Valid values: "nouns-genders", "verbs", "eifeler-regel", "inversion", "verbs-of-motion", "other-grammar", "translation-review".
+    /// </summary>
+    public List<string>? GrammarAspects { get; set; }
 }
 
 public class TranslationResult

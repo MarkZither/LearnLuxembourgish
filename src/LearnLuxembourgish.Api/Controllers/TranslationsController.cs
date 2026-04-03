@@ -63,6 +63,7 @@ public class TranslationsController : ControllerBase
             result.TranslatedText,
             apiKey: request.GrammarApiKey,
             provider: request.GrammarProvider,
+            grammarAspects: request.GrammarAspects,
             cancellationToken: cancellationToken);
         await Task.WhenAll(audioTask, grammarTask);
 
