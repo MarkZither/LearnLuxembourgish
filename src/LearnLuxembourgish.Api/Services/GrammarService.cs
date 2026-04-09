@@ -15,12 +15,36 @@ public class GrammarService : IGrammarService
 
     private static readonly string SystemPromptBase =
         "You are an expert Luxembourgish (Lëtzebuergesch) language teacher. " +
-        "Given an original text and its Luxembourgish translation (produced by DeepL), provide a structured grammatical breakdown and translation review. " +
-        "Always include a **Verbs** section identifying every verb with its infinitive form, conjugated form used, tense, conjugation pattern, and any irregular forms. " +
-        "After the verbs prose, output a fenced code block tagged `verbs-json` (for programmatic extraction) listing every verb found:\n" +
-        "```verbs-json\n[{\"infinitive\":\"goen\",\"formUsed\":\"geet\",\"english\":\"to go (on foot)\"}]\n```\n" +
-        "Always include a final **Translation Review** section that assesses whether the DeepL translation is accurate and natural, " +
-        "highlights any errors or awkward phrasings, and provides a revised version with explanation if corrections are needed. ";
+        "Given an original text and its Luxembourgish translation (produced by DeepL), provide a concise grammatical breakdown and translation review.\n\n" +
+        "CRITICAL RULES:\n" +
+        "- Be terse. Only mention what is actually present in the translation.\n" +
+        "- If a section has nothing meaningful to say, OMIT it entirely — do not write filler like 'no issues found' or 'this rule does not apply here'.\n" +
+        "- Do not repeat the full sentence in every section.\n" +
+        "- VERB CONJUGATION SELF-CHECK: Before suggesting any change to a verb form, verify it against the conjugation you identified in the Verbs section. " +
+        "In Luxembourgish V2 word order, the conjugated verb form does NOT change when it inverts with the subject — " +
+        "'Um 7 Auer huelen ech' uses the same 'ech' form as 'ech huelen'; do NOT strip endings to create a bare stem. " +
+        "If a form matches standard conjugation for that person/tense, it is correct — do not 'correct' it.\n" +
+        "- Only propose a correction if you can name the specific rule it violates AND confirm the replacement form is the standard conjugated form for that person and tense.\n" +
+        "- NORTHERN DIALECT VOCABULARY: This app targets northern Luxembourgish. Always apply these replacements in the revised translation: " +
+        "'Hond' → 'Mupp' (plural: 'Honden' → 'Muppen'). If DeepL uses 'Hond'/'Honden', correct it to 'Mupp'/'Muppen' and note it in the Translation Review.\n" +
+        "- EIFELER REGEL SELF-CHECK: Before writing the revised-translation block, go through EVERY word you analyzed in the Eifeler Regel section, one by one:\n" +
+        "  1. Find that word in your revised sentence.\n" +
+        "  2. If your analysis said KEEP -n, confirm the word still ends in -n in your revised text.\n" +
+        "  3. If your analysis said DROP -n, confirm the -n is removed in your revised text.\n" +
+        "  4. If ANY word doesn't match, fix it before outputting the block.\n" +
+        "  Example: if you wrote 'ginn dacks → KEEP -n' but your revised sentence says 'gi dacks', that is a contradiction — fix it to 'ginn dacks'.\n\n" +
+        "REQUIRED SECTIONS (always include):\n\n" +
+        "**Verbs** – For each verb: infinitive, conjugated form used, tense, person, conjugation pattern, irregular forms if any.\n" +
+        "After the prose, output a machine-readable block (stripped before display):\n" +
+        "```verbs-json\n[{\"infinitive\":\"goen\",\"formUsed\":\"geet\",\"english\":\"to go (on foot)\"}]\n```\n\n" +
+        "**Translation Review** – Assess accuracy and naturalness. If the translation is correct and natural, say so in one sentence. " +
+        "If corrections are needed, name the specific rule violated and confirm the corrected form is the proper conjugated form. " +
+        "IMPORTANT: The revised translation must incorporate ALL findings from previous sections — " +
+        "especially the Eifeler Regel. Do not blindly drop -n from verb forms; only drop -n where the Eifeler Regel analysis " +
+        "determined the next word starts with a non-UNITED-ZOHA letter. 'ginn dacks' keeps -n because 'd' is in UNITED ZOHA. " +
+        "Always end with a machine-readable block containing the final Luxembourgish sentence (revised if needed, or the original DeepL if it was correct):\n" +
+        "```revised-translation\nthe final luxembourgish text here\n```\n\n" +
+        "OPTIONAL SECTIONS (include only if there is something meaningful to say):\n";
 
     private static readonly Dictionary<string, string> AspectPrompts = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -28,17 +52,26 @@ public class GrammarService : IGrammarService
             "**Nouns & Genders** – List each noun with its gender (masculine/feminine/neuter) and definite article (de/d'/d'/den/dem/des). " +
             "Explain any gender that may surprise English or Polish speakers.",
         ["eifeler-regel"] =
-            "**Eifeler Regel** – Explain where the Eifeler Regel applies in the translation: " +
-            "specifically where a word-final -n is dropped or added before a following consonant or vowel. " +
-            "Give the affected words and the rule that governs them.",
+            "**Eifeler Regel (n-rule)** – This rule governs whether a word-final -n is kept or dropped.\n\n" +
+            "The candidate word pairs have been pre-computed and provided in the user message under 'EIFELER REGEL CANDIDATES'. " +
+            "Analyze ONLY those pairs — do NOT add any other words. " +
+            "For each pair, check the first letter of the second word against **UNITED ZOHA** (U, N, I, T, E, D, Z, O, H, A). " +
+            "If it's in UNITED ZOHA → KEEP the -n. If it's not → DROP the -n.\n\n" +
+            "Output one line per pair in this exact format:\n" +
+            "  'word1' + 'word2' → first letter 'X' → in/not in UNITED ZOHA → KEEP/DROP → 'result'\n\n" +
+            "EXAMPLES:\n" +
+            "  • 'ginn' + 'dacks' → first letter 'd' → in UNITED ZOHA → KEEP → 'ginn dacks'\n" +
+            "  • 'ginn' + 'gären' → first letter 'g' → NOT in UNITED ZOHA → DROP → 'gi gären'\n" +
+            "  • 'kommen' + 'mat' → first letter 'm' → NOT in UNITED ZOHA → DROP → 'komme mat'\n\n" +
+            "If no candidates are provided, omit this section entirely.",
         ["inversion"] =
             "**Inversion Rule (V2 Word Order)** – Identify any fronted elements (adverbs, time expressions, objects, prepositional phrases). " +
             "For each, show whether the verb and subject correctly invert as required by Luxembourgish V2 word order (i.e. the finite verb must remain in second position). " +
             "Flag any missing or incorrect inversion in the translation.",
         ["verbs-of-motion"] =
-            "**Verbs of Motion** – List every verb of motion in the translation. For each, confirm whether the correct Luxembourgish verb is used for the mode of transport or movement " +
-            "(e.g., fueren for vehicle/train/bus travel, fléien for flying, goen/ginn for walking on foot, schwammen for swimming, reeden for cycling, fueren/kommen for general directed motion). " +
-            "Flag any where a different verb would be more natural or correct.",
+            "**Verbs of Motion** – List only the verbs of motion that are actually present. For each, confirm whether the correct verb is used " +
+            "(fueren: vehicle/train/bus; fléien: flying; goen/ginn: walking; schwammen: swimming; reeden: cycling). " +
+            "Do NOT write sentences about verbs that are absent. If only one motion verb is present, list only that one.",
         ["other-grammar"] =
             "**Other Grammar Notes** – Cover case usage, prepositions, word order, or idiomatic expressions as needed.",
     };
@@ -57,9 +90,8 @@ public class GrammarService : IGrammarService
             .ToList();
 
         return SystemPromptBase +
-            "Your response must cover the following sections:\n" +
             string.Join("\n", sections) +
-            "\nFormat each section with a clear heading. Be concise but educational, suitable for an intermediate language learner.";
+            "\n\nFormat each included section with a clear heading. Be concise and educational, suitable for an intermediate language learner.";
     }
 
     private const string ConjugationSystemPrompt =
@@ -77,6 +109,28 @@ public class GrammarService : IGrammarService
     {
         _configuration = configuration;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Pre-computes Eifeler Regel candidate pairs: words ending in 'n' paired with the immediately following word.
+    /// </summary>
+    internal static List<(string Word, string NextWord)> GetEifelerRegelCandidates(string text)
+    {
+        // Split on whitespace, strip trailing punctuation for the ends-in-n check but keep original for display
+        var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var results = new List<(string Word, string NextWord)>();
+
+        for (int i = 0; i < tokens.Length - 1; i++)
+        {
+            var word = tokens[i].TrimEnd(',', '.', '!', '?', ';', ':');
+            if (word.Length > 0 && word[^1] is 'n' or 'N')
+            {
+                var nextWord = tokens[i + 1].TrimEnd(',', '.', '!', '?', ';', ':');
+                results.Add((word, nextWord));
+            }
+        }
+
+        return results;
     }
 
     public async Task<string?> ExplainGrammarAsync(
@@ -101,9 +155,26 @@ public class GrammarService : IGrammarService
             var chat = kernel.GetRequiredService<IChatCompletionService>();
             var history = new ChatHistory();
             history.AddSystemMessage(BuildSystemPrompt(grammarAspects));
+            var eifelerCandidates = "";
+            var aspectList = grammarAspects?.ToList();
+            if (aspectList is null || aspectList.Count == 0 || aspectList.Contains("eifeler-regel", StringComparer.OrdinalIgnoreCase))
+            {
+                var pairs = GetEifelerRegelCandidates(translatedText);
+                if (pairs.Count > 0)
+                {
+                    eifelerCandidates = "\n\nEIFELER REGEL CANDIDATES (pre-computed — only these words end in 'n'):\n" +
+                        string.Join("\n", pairs.Select(p => $"  '{p.Word}' + '{p.NextWord}'"));
+                }
+                else
+                {
+                    eifelerCandidates = "\n\nEIFELER REGEL CANDIDATES: none (no words ending in 'n' found).";
+                }
+            }
+
             history.AddUserMessage(
                 $"Original text ({(sourceText.Length > 0 ? "source" : "unknown")}): {sourceText}" +
                 $"\n\nLuxembourgish translation (from DeepL): {translatedText}" +
+                eifelerCandidates +
                 $"\n\nPlease provide the grammatical breakdown for the selected sections.");
 
             var response = await chat.GetChatMessageContentAsync(history, cancellationToken: cancellationToken);

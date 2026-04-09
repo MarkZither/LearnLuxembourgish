@@ -77,10 +77,17 @@ public class TranslationsController : ControllerBase
         if (result.GrammarExplanation is not null)
         {
             var infinitives = ExtractVerbInfinitives(result.GrammarExplanation);
-            // Strip the verbs-json block from the markdown before rendering
+            result.RevisedTranslation = ExtractRevisedTranslation(result.GrammarExplanation);
+
+            // Strip machine-readable blocks from the markdown before rendering
             result.GrammarExplanation = Regex.Replace(
                 result.GrammarExplanation,
                 @"\n?```verbs-json\s*[\s\S]*?```\n?",
+                string.Empty,
+                RegexOptions.Singleline);
+            result.GrammarExplanation = Regex.Replace(
+                result.GrammarExplanation,
+                @"\n?```revised-translation\s*[\s\S]*?```\n?",
                 string.Empty,
                 RegexOptions.Singleline).Trim();
             if (infinitives is { Count: > 0 })
@@ -123,6 +130,12 @@ public class TranslationsController : ControllerBase
 
         _logger.LogInformation("Translation request completed successfully");
         return Ok(result);
+    }
+
+    private static string? ExtractRevisedTranslation(string grammarExplanation)
+    {
+        var match = Regex.Match(grammarExplanation, @"```revised-translation\s*([\s\S]*?)\s*```", RegexOptions.Singleline);
+        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     private static List<string>? ExtractVerbInfinitives(string grammarExplanation)

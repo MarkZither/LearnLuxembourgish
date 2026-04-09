@@ -30,6 +30,7 @@ public class TranslationResult
     public required string OriginalText { get; set; }
     public required string SourceLanguage { get; set; }
     public required string TranslatedText { get; set; }
+    public string? RevisedTranslation { get; set; }
     public string? AudioUrl { get; set; }
     public string? AudioError { get; set; }
     public string? GrammarExplanation { get; set; }
