@@ -4,7 +4,6 @@ using LearnLuxembourgish.Shared.Services;
 using LearnLuxembourgish.Shared.Http;
 using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
@@ -41,6 +40,9 @@ builder.Services.AddScoped<ApiClient>(sp =>
     var logger = sp.GetRequiredService<ILogger<ApiClient>>();
     return new ApiClient(httpClient, tokenProvider, logger);
 });
+
+// sproochmaschinn.lu TTS client (called from the web tier, not the API server)
+builder.Services.AddHttpClient<ISproochmaschinnService, SproochmaschinnService>();
 
 var app = builder.Build();
 

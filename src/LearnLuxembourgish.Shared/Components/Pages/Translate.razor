@@ -5,6 +5,7 @@
 @inject LearnLuxembourgish.Shared.Http.ApiClient Api
 @inject UserSettingsService Settings
 @inject NavigationManager Navigation
+@inject ISproochmaschinnService Sproochmaschinn
 
 <PageTitle>Translate to Luxembourgish</PageTitle>
 
@@ -135,15 +136,19 @@
                             Your browser does not support audio playback.
                         </audio>
                     }
-                    else
+                    else if (IsGeneratingAudio)
+                    {
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            <small class="text-muted">Generating audio pronunciation...</small>
+                        </div>
+                    }
+                    else if (Result.AudioError is not null)
                     {
                         <div class="alert alert-warning py-2 mb-0">
                             <small>
                                 <strong>Audio unavailable</strong>
-                                @if (Result.AudioError is not null)
-                                {
-                                    <span> — @Result.AudioError</span>
-                                }
+                                <span> — @Result.AudioError</span>
                             </small>
                         </div>
                     }
@@ -212,6 +217,7 @@
         ["nouns-genders", "eifeler-regel", "inversion", "verbs-of-motion", "other-grammar"];
     private TranslationResult? Result { get; set; }
     private bool IsLoading { get; set; }
+    private bool IsGeneratingAudio { get; set; }
     private string? ErrorMessage { get; set; }
     private string? SavedMessage { get; set; }
     private TranslationProgress? Progress { get; set; }
@@ -301,6 +307,12 @@
                         Progress.CompletedSteps.Add($"✓ Verb conjugation tables ready ({Result.VerbConjugations.Count} verbs)");
                     StateHasChanged();
                     await Task.Delay(300);
+
+                    // If no cached audio exists, generate it here and upload for future reuse
+                    if (Result.AudioRequired)
+                    {
+                        await GenerateAndUploadAudioAsync(Result.TranslatedText);
+                    }
                 }
             }
             else
@@ -347,6 +359,58 @@
         catch (Exception ex)
         {
             SavedMessage = $"Error saving flash card: {ex.Message}";
+        }
+    }
+
+    private async Task GenerateAndUploadAudioAsync(string luxembourgishText)
+    {
+        if (Result is null) return;
+
+        IsGeneratingAudio = true;
+        StateHasChanged();
+
+        try
+        {
+            var audioResult = await Sproochmaschinn.GenerateAudioAsync(luxembourgishText);
+            if (audioResult is null)
+            {
+                Result.AudioError = "Audio generation failed.";
+                return;
+            }
+
+            var (audioBytes, contentType) = audioResult.Value;
+            var uploadRequest = new AudioUploadRequest
+            {
+                LuxembourgishText = luxembourgishText,
+                AudioData = Convert.ToBase64String(audioBytes),
+                ContentType = contentType
+            };
+
+            var uploadResponse = await Api.PostAsJsonAsync("api/audio", uploadRequest);
+            if (uploadResponse.IsSuccessStatusCode)
+            {
+                var uploadResult = await uploadResponse.Content.ReadFromJsonAsync<AudioUploadResult>();
+                if (uploadResult is not null)
+                {
+                    Result.AudioUrl = uploadResult.AudioUrl;
+                    Result.AudioRequired = false;
+                    if (Progress is not null)
+                        Progress.CompletedSteps.Add("✓ Audio pronunciation ready");
+                }
+            }
+            else
+            {
+                Result.AudioError = "Could not save audio to server.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Result.AudioError = $"Audio error: {ex.Message}";
+        }
+        finally
+        {
+            IsGeneratingAudio = false;
+            StateHasChanged();
         }
     }
 }

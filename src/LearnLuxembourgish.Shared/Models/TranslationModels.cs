@@ -33,6 +33,10 @@ public class TranslationResult
     public string? RevisedTranslation { get; set; }
     public string? AudioUrl { get; set; }
     public string? AudioError { get; set; }
+    /// <summary>
+    /// True when no cached audio exists and the client should generate and upload it.
+    /// </summary>
+    public bool AudioRequired { get; set; }
     public string? GrammarExplanation { get; set; }
     public required string Provider { get; set; }
     public List<VerbConjugationTable>? VerbConjugations { get; set; }
@@ -76,4 +80,17 @@ public class VerbTenseTable
 {
     public required string Name { get; set; }
     public Dictionary<string, string> Forms { get; set; } = [];
+}
+
+public class AudioUploadRequest
+{
+    public required string LuxembourgishText { get; set; }
+    /// <summary>Base-64 encoded audio bytes.</summary>
+    public required string AudioData { get; set; }
+    public required string ContentType { get; set; }
+}
+
+public class AudioUploadResult
+{
+    public required string AudioUrl { get; set; }
 }

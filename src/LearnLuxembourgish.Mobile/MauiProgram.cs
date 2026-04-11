@@ -65,6 +65,9 @@ public static class MauiProgram
             return new ApiClient(httpClient, tokenProvider, logger);
         });
 
+        // sproochmaschinn.lu TTS client (called from the app, not the API server)
+        builder.Services.AddHttpClient<ISproochmaschinnService, SproochmaschinnService>();
+
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
