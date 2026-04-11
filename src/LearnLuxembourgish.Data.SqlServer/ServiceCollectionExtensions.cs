@@ -9,7 +9,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSqlServerDataStore(this IServiceCollection services, string connectionString)
     {
         services.AddDbContext<LearnLuxembourgishDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseSqlServer(connectionString,
+                b => b.MigrationsAssembly("LearnLuxembourgish.Data.SqlServer")));
         return services;
     }
 }

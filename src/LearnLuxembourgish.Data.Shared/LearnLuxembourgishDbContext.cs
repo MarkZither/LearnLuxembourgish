@@ -9,6 +9,7 @@ public class LearnLuxembourgishDbContext(DbContextOptions options) : DbContext(o
     public DbSet<FlashCard> FlashCards => Set<FlashCard>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<TranslationAudio> TranslationAudios => Set<TranslationAudio>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +64,16 @@ public class LearnLuxembourgishDbContext(DbContextOptions options) : DbContext(o
                 .WithMany(u => u.RefreshTokens)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TranslationAudio>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TextHash).IsUnique();
+            entity.Property(e => e.LuxembourgishText).IsRequired().HasMaxLength(5000);
+            entity.Property(e => e.TextHash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.AudioData).IsRequired();
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(50);
         });
     }
 }

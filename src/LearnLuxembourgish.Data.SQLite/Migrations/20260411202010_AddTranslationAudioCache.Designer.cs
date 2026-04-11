@@ -3,6 +3,7 @@ using System;
 using LearnLuxembourgish.Data.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LearnLuxembourgish.Data.SQLite.Migrations
 {
     [DbContext(typeof(LearnLuxembourgishDbContext))]
-    partial class LearnLuxembourgishDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411202010_AddTranslationAudioCache")]
+    partial class AddTranslationAudioCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");

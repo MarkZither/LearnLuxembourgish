@@ -9,7 +9,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddPostgreSQLDataStore(this IServiceCollection services, string connectionString)
     {
         services.AddDbContext<LearnLuxembourgishDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString,
+                b => b.MigrationsAssembly("LearnLuxembourgish.Data.PostgreSQL")));
         return services;
     }
 }
