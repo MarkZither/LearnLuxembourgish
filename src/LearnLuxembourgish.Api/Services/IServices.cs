@@ -7,11 +7,6 @@ public interface ITranslationService
     Task<TranslationResult> TranslateAsync(TranslationRequest request, CancellationToken cancellationToken = default);
 }
 
-public interface IAudioService
-{
-    Task<(string? Url, string? Error)> GenerateAudioAsync(string luxembourgishText, CancellationToken cancellationToken = default);
-}
-
 public interface IGrammarService
 {
     Task<string?> ExplainGrammarAsync(

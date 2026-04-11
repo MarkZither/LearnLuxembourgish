@@ -63,11 +63,9 @@ builder.Services.AddAuthorization();
 
 // HTTP clients
 builder.Services.AddHttpClient("translation");
-builder.Services.AddHttpClient("audio");
 
 // Application services
 builder.Services.AddScoped<ITranslationService, TranslationService>();
-builder.Services.AddScoped<IAudioService, AudioService>();
 builder.Services.AddScoped<IGrammarService, GrammarService>();
 
 // CORS for Blazor frontend

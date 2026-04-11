@@ -6,6 +6,7 @@ using LearnLuxembourgish.Data.Shared.Entities;
 using LearnLuxembourgish.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LearnLuxembourgish.Api.Controllers;
 
@@ -14,20 +15,17 @@ namespace LearnLuxembourgish.Api.Controllers;
 public class TranslationsController : ControllerBase
 {
     private readonly ITranslationService _translationService;
-    private readonly IAudioService _audioService;
     private readonly IGrammarService _grammarService;
     private readonly LearnLuxembourgishDbContext _dbContext;
     private readonly ILogger<TranslationsController> _logger;
 
     public TranslationsController(
         ITranslationService translationService,
-        IAudioService audioService,
         IGrammarService grammarService,
         LearnLuxembourgishDbContext dbContext,
         ILogger<TranslationsController> logger)
     {
         _translationService = translationService;
-        _audioService = audioService;
         _grammarService = grammarService;
         _dbContext = dbContext;
         _logger = logger;
@@ -55,9 +53,25 @@ public class TranslationsController : ControllerBase
         var result = await _translationService.TranslateAsync(request, cancellationToken);
         _logger.LogInformation("Core translation completed with provider {Provider}", result.Provider);
 
-        // Generate audio and grammar explanation in parallel
-        _logger.LogInformation("Starting parallel audio and grammar generation");
-        var audioTask = _audioService.GenerateAudioAsync(result.TranslatedText, cancellationToken);
+        // Check audio cache — if found, include URL; otherwise ask client to generate it
+        var textHash = AudioController.ComputeTextHash(result.TranslatedText);
+        var cachedAudio = await _dbContext.TranslationAudios
+            .FirstOrDefaultAsync(a => a.TextHash == textHash, cancellationToken);
+
+        if (cachedAudio is not null)
+        {
+            result.AudioUrl = $"api/audio/{cachedAudio.Id}";
+            result.AudioRequired = false;
+            _logger.LogInformation("Audio cache hit for translation, audio id {AudioId}", cachedAudio.Id);
+        }
+        else
+        {
+            result.AudioRequired = true;
+            _logger.LogInformation("No cached audio — client will generate and upload");
+        }
+
+        // Grammar explanation
+        _logger.LogInformation("Starting grammar generation");
         var grammarTask = _grammarService.ExplainGrammarAsync(
             request.Text,
             result.TranslatedText,
@@ -65,13 +79,9 @@ public class TranslationsController : ControllerBase
             provider: request.GrammarProvider,
             grammarAspects: request.GrammarAspects,
             cancellationToken: cancellationToken);
-        await Task.WhenAll(audioTask, grammarTask);
 
-        var (audioUrl, audioError) = await audioTask;
-        result.AudioUrl = audioUrl;
-        result.AudioError = audioError;
         result.GrammarExplanation = await grammarTask;
-        _logger.LogInformation("Audio and grammar generation completed. Audio: {HasAudio}, Grammar: {HasGrammar}",
+        _logger.LogInformation("Grammar generation completed. Audio cached: {HasAudio}, Grammar: {HasGrammar}",
             result.AudioUrl != null, result.GrammarExplanation != null);
 
         if (result.GrammarExplanation is not null)
@@ -160,18 +170,61 @@ public class TranslationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<TranslationResult>>> GetMyTranslations(CancellationToken cancellationToken)
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        var translations = _dbContext.Translations
+        var translations = await _dbContext.Translations
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new TranslationResult
+            .Select(t => new
             {
+                t.Id,
+                t.SourceText,
+                t.SourceLanguage,
+                t.TranslatedText,
+                t.AudioUrl,
+                t.GrammarExplanation,
+                t.TranslationProvider
+            })
+            .ToListAsync(cancellationToken);
+
+        // For translations without a cached audio URL, check the audio cache now
+        var textsNeedingAudio = translations
+            .Where(t => t.AudioUrl is null)
+            .Select(t => AudioController.ComputeTextHash(t.TranslatedText))
+            .Distinct()
+            .ToList();
+
+        Dictionary<string, string> hashToUrl = [];
+        if (textsNeedingAudio.Count > 0)
+        {
+            var cachedAudios = await _dbContext.TranslationAudios
+                .Where(a => textsNeedingAudio.Contains(a.TextHash))
+                .Select(a => new { a.TextHash, a.Id })
+                .ToListAsync(cancellationToken);
+
+            hashToUrl = cachedAudios.ToDictionary(a => a.TextHash, a => $"api/audio/{a.Id}");
+        }
+
+        var results = translations.Select(t =>
+        {
+            var audioUrl = t.AudioUrl;
+            if (audioUrl is null)
+            {
+                var hash = AudioController.ComputeTextHash(t.TranslatedText);
+                hashToUrl.TryGetValue(hash, out audioUrl);
+            }
+
+            return new TranslationResult
+            {
+                TranslationId = t.Id,
                 OriginalText = t.SourceText,
                 SourceLanguage = t.SourceLanguage,
                 TranslatedText = t.TranslatedText,
-                AudioUrl = t.AudioUrl,
+                AudioUrl = audioUrl,
+                AudioRequired = audioUrl is null,
                 GrammarExplanation = t.GrammarExplanation,
                 Provider = t.TranslationProvider ?? "Unknown"
-            });
-        return Ok(translations);
+            };
+        });
+
+        return Ok(results);
     }
 }
