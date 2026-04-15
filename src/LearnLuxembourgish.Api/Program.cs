@@ -1,7 +1,9 @@
+using LearnLuxembourgish.Api.RateLimiting;
 using LearnLuxembourgish.Api.Services;
 using LearnLuxembourgish.Api.Services.Authentication;
 using LearnLuxembourgish.Data.SQLite;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -66,6 +68,10 @@ builder.Services.AddHttpClient("translation");
 
 // Clock abstraction — overridden with FakeTimeProvider in integration tests
 builder.Services.AddSingleton(TimeProvider.System);
+
+// Rate limiting
+builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimiting"));
+builder.Services.AddSingleton<IRateLimitStore, InMemoryRateLimitStore>();
 
 // Application services
 builder.Services.AddScoped<ITranslationService, TranslationService>();
@@ -153,11 +159,23 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// SEC-001/004: UseForwardedHeaders rewrites RemoteIpAddress from X-Forwarded-For
+// using only the trusted proxy network.  Must run before UseAuthentication so that
+// both identity resolution and rate limiting see the real client IP.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 app.UseCors();
 
 // Always use authentication/authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Rate limiting — must follow UseAuthentication/UseAuthorization
+// so HttpContext.User is populated (SEC-002 guard enforces this at startup).
+app.UseMiddleware<TranslationRateLimitMiddleware>();
 
 app.MapControllers();
 
