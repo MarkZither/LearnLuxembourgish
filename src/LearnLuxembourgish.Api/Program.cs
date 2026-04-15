@@ -64,6 +64,9 @@ builder.Services.AddAuthorization();
 // HTTP clients
 builder.Services.AddHttpClient("translation");
 
+// Clock abstraction — overridden with FakeTimeProvider in integration tests
+builder.Services.AddSingleton(TimeProvider.System);
+
 // Application services
 builder.Services.AddScoped<ITranslationService, TranslationService>();
 builder.Services.AddScoped<IGrammarService, GrammarService>();
