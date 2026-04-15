@@ -3,7 +3,8 @@
 **Feature**: API Rate Limiting  
 **Date**: 2026-04-14  
 **Spec**: `docs/features/rate-limiting/spec.md`  
-**Plan**: `docs/features/rate-limiting/plan.md`
+**Plan**: `docs/features/rate-limiting/plan.md`  
+**Security Review**: `docs/features/rate-limiting/security-review-architecture.md` — four open findings (SEC-001/002/004/005); see annotated tasks below
 
 ## Phase 1 — Setup
 
@@ -20,8 +21,8 @@
 - [ ] Implement `InMemoryRateLimitStore` (token bucket, `ConcurrentDictionary`, continuous refill) in `src/LearnLuxembourgish.Api/RateLimiting/InMemoryRateLimitStore.cs`
 - [ ] Write unit tests for `InMemoryRateLimitStore` in `tests/LearnLuxembourgish.Tests/RateLimiting/InMemoryRateLimitStoreTests.cs`
 - [ ] Implement `RateLimitResponseWriter` helper in `src/LearnLuxembourgish.Api/RateLimiting/RateLimitResponseWriter.cs`
-- [ ] Implement `TranslationRateLimitMiddleware` (store availability, identity resolution, global-before-per-identity, Owner/Admin bypass, response headers) in `src/LearnLuxembourgish.Api/RateLimiting/TranslationRateLimitMiddleware.cs`
-- [ ] Register `IRateLimitStore`, `RateLimitOptions`, and `TranslationRateLimitMiddleware` in `src/LearnLuxembourgish.Api/Program.cs`
+- [ ] Implement `TranslationRateLimitMiddleware` (store availability, identity resolution, global-before-per-identity, Owner/Admin bypass, response headers) in `src/LearnLuxembourgish.Api/RateLimiting/TranslationRateLimitMiddleware.cs` — **SEC-002**: constructor must assert `IAuthenticationSchemeProvider` is in DI (fail-fast if middleware is registered before `UseAuthentication`); **SEC-005**: wrap all store calls in `try/catch(Exception)` and return 429 `store-unavailable` on any exception
+- [ ] Register `IRateLimitStore`, `RateLimitOptions`, and `TranslationRateLimitMiddleware` in `src/LearnLuxembourgish.Api/Program.cs` — **SEC-001/004**: call `app.UseForwardedHeaders()` with `KnownProxies`/`KnownNetworks` restricted to the proxy CIDR **before** `app.UseAuthentication()`; do not read `X-Forwarded-For` directly in middleware
 - [ ] Add `RateLimiting` section with defaults to `src/LearnLuxembourgish.Api/appsettings.json`
 - [ ] Write unit tests for `TranslationRateLimitMiddleware` in `tests/LearnLuxembourgish.Tests/RateLimiting/TranslationRateLimitMiddlewareTests.cs`
 
