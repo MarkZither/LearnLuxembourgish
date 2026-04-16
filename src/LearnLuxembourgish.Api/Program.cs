@@ -181,3 +181,6 @@ app.UseMiddleware<TranslationRateLimitMiddleware>();
 app.MapControllers();
 
 app.Run();
+
+// Make Program accessible to WebApplicationFactory in integration tests.
+public partial class Program { }
