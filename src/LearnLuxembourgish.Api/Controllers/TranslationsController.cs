@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using LearnLuxembourgish.Api.RateLimiting;
 using LearnLuxembourgish.Api.Services;
 using LearnLuxembourgish.Data.Shared;
 using LearnLuxembourgish.Data.Shared.Entities;
@@ -72,15 +73,26 @@ public class TranslationsController : ControllerBase
 
         // Grammar explanation
         _logger.LogInformation("Starting grammar generation");
-        var grammarTask = _grammarService.ExplainGrammarAsync(
-            request.Text,
-            result.TranslatedText,
-            apiKey: request.GrammarApiKey,
-            provider: request.GrammarProvider,
-            grammarAspects: request.GrammarAspects,
-            cancellationToken: cancellationToken);
+        try
+        {
+            result.GrammarExplanation = await _grammarService.ExplainGrammarAsync(
+                request.Text,
+                result.TranslatedText,
+                apiKey: request.GrammarApiKey,
+                provider: request.GrammarProvider,
+                grammarAspects: request.GrammarAspects,
+                cancellationToken: cancellationToken);
+        }
+        catch (OutboundBudgetExceededException)
+        {
+            _logger.LogInformation("Outbound LLM budget exhausted — returning 429");
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                error = "outbound-budget-exceeded",
+                message = "Grammar analysis budget exhausted. Please try again later."
+            });
+        }
 
-        result.GrammarExplanation = await grammarTask;
         _logger.LogInformation("Grammar generation completed. Audio cached: {HasAudio}, Grammar: {HasGrammar}",
             result.AudioUrl != null, result.GrammarExplanation != null);
 
@@ -110,6 +122,10 @@ public class TranslationsController : ControllerBase
                         apiKey: request.GrammarApiKey,
                         provider: request.GrammarProvider,
                         cancellationToken: cancellationToken);
+                }
+                catch (OutboundBudgetExceededException)
+                {
+                    _logger.LogInformation("Outbound budget exhausted during verb conjugation, skipping");
                 }
                 catch (Exception ex)
                 {

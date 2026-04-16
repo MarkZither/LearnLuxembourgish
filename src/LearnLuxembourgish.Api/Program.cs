@@ -72,6 +72,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 // Rate limiting
 builder.Services.Configure<RateLimitOptions>(builder.Configuration.GetSection("RateLimiting"));
 builder.Services.AddSingleton<IRateLimitStore, InMemoryRateLimitStore>();
+builder.Services.AddSingleton<IOutboundCallBudget, OutboundCallBudget>();
 
 // Application services
 builder.Services.AddScoped<ITranslationService, TranslationService>();

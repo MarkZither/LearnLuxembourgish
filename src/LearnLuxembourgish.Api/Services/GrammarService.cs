@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using LearnLuxembourgish.Api.RateLimiting;
 using LearnLuxembourgish.Shared.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -11,6 +12,7 @@ public class GrammarService : IGrammarService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<GrammarService> _logger;
+    private readonly IOutboundCallBudget _outboundBudget;
     private static readonly ActivitySource ActivitySource = new("LearnLuxembourgish.Grammar");
 
     private static readonly string SystemPromptBase =
@@ -105,10 +107,11 @@ public class GrammarService : IGrammarService
         "Include exactly these tenses for every verb: \"Präsens (Present)\", \"Perfekt (Present Perfect)\", \"Futur I (Future)\". " +
         "Use the correct auxiliary verb + past participle for Perfekt (sinn for motion verbs, hunn for transitive verbs).";
 
-    public GrammarService(IConfiguration configuration, ILogger<GrammarService> logger)
+    public GrammarService(IConfiguration configuration, ILogger<GrammarService> logger, IOutboundCallBudget outboundBudget)
     {
         _configuration = configuration;
         _logger = logger;
+        _outboundBudget = outboundBudget;
     }
 
     /// <summary>
@@ -141,6 +144,11 @@ public class GrammarService : IGrammarService
         IEnumerable<string>? grammarAspects = null,
         CancellationToken cancellationToken = default)
     {
+        // Budget check must be outside the try/catch so the exception propagates to the controller.
+        var budgetResult = await _outboundBudget.TryConsumeAsync(cancellationToken);
+        if (!budgetResult.Allowed)
+            throw new OutboundBudgetExceededException(budgetResult);
+
         using var activity = ActivitySource.StartActivity("ExplainGrammar");
         activity?.SetTag("source.length", sourceText.Length);
         activity?.SetTag("translated.length", translatedText.Length);
@@ -205,6 +213,11 @@ public class GrammarService : IGrammarService
     {
         var verbList = infinitives.Distinct().ToList();
         if (verbList.Count == 0) return null;
+
+        // Budget check must be outside the try/catch so the exception propagates to the caller.
+        var budgetResult = await _outboundBudget.TryConsumeAsync(cancellationToken);
+        if (!budgetResult.Allowed)
+            throw new OutboundBudgetExceededException(budgetResult);
 
         using var activity = ActivitySource.StartActivity("ConjugateVerbs");
         activity?.SetTag("verb.count", verbList.Count);
