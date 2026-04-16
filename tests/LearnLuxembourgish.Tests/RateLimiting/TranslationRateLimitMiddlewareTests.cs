@@ -377,4 +377,49 @@ public class TranslationRateLimitMiddlewareTests
         Assert.True(ctx.Response.Headers.ContainsKey("Retry-After"));
         Assert.True(int.Parse(ctx.Response.Headers["Retry-After"].ToString()) >= 1);
     }
+
+    // -------------------------------------------------------------------------
+    // Phase 4: authenticated quota edge cases and explicit admin bypass (US3/US4)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Authenticated_LastAllowedRequest_Returns200_WithRemainingZero()
+    {
+        // Remaining=0 means this was the last token — but Allowed=true, so it's a 200.
+        var now = DateTimeOffset.UtcNow;
+        var store = new Mock<IRateLimitStore>();
+        store.Setup(s => s.IsAvailableAsync(It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        store.Setup(s => s.TryConsumeAsync(
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+             .ReturnsAsync(new TokenBucketResult(true, 0, now.AddHours(1)));
+
+        bool nextCalled = false;
+        var mw = BuildMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, store.Object);
+        var ctx = BuildContext(user: AuthUser("alice"));
+
+        await mw.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.Equal(200, ctx.Response.StatusCode);
+        // X-RateLimit-Remaining must reflect the store result even when it is 0.
+        Assert.Equal("0", ctx.Response.Headers["X-RateLimit-Remaining"].ToString());
+        // X-RateLimit-Limit must reflect the configured per-user MaxTokens.
+        Assert.Equal(DefaultOptions.Authenticated.PerUser.MaxTokens.ToString(),
+            ctx.Response.Headers["X-RateLimit-Limit"].ToString());
+    }
+
+    [Fact]
+    public async Task Admin_WhenAuthQuotaExhausted_StillPasses200()
+    {
+        // Admin bypass (step 4) occurs after store availability check (step 2) but before
+        // any TryConsume call.  Even if all buckets would deny, admin is never rate-limited.
+        bool nextCalled = false;
+        var mw = BuildMiddleware(_ => { nextCalled = true; return Task.CompletedTask; }, DenyingStore().Object);
+        var ctx = BuildContext(user: AdminUser());
+
+        await mw.InvokeAsync(ctx);
+
+        Assert.True(nextCalled);
+        Assert.Equal(200, ctx.Response.StatusCode);
+    }
 }
