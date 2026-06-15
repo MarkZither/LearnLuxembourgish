@@ -30,8 +30,7 @@
     <!-- Embed appsettings so MauiProgram can read it at runtime -->
     <EmbeddedResource Include="appsettings.json" LogicalName="appsettings.json" />
     <!-- Release overrides (gitignored) — created locally or by CI from secrets -->
-    <EmbeddedResource Condition="'$(Configuration)' == 'Release' and Exists('appsettings.release.json')"
-                      Include="appsettings.release.json" LogicalName="appsettings.release.json" />
+    <EmbeddedResource Condition="'$(Configuration)' == 'Release' and Exists('appsettings.release.json')" Include="appsettings.release.json" LogicalName="appsettings.release.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,9 +38,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.82.0" />
     <PackageReference Include="MudBlazor" Version="8.5.1" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
