@@ -109,7 +109,7 @@ public class RateLimitIntegrationTests
                 // the TestServer's loopback connection is treated as a trusted proxy.
                 services.Configure<ForwardedHeadersOptions>(opts =>
                 {
-                    opts.KnownNetworks.Clear();
+                    opts.KnownIPNetworks.Clear();
                     opts.KnownProxies.Clear();
                 });
             });

@@ -37,7 +37,10 @@ public static class MauiProgram
         if (releaseStream is not null)
             builder.Configuration.AddJsonStream(releaseStream);
 
-        builder.Services.AddMauiBlazorWebView();
+        if (!OperatingSystem.IsAndroid() || OperatingSystem.IsAndroidVersionAtLeast(24))
+        {
+            builder.Services.AddMauiBlazorWebView();
+        }
 
         // MudBlazor UI services
         builder.Services.AddMudServices();
