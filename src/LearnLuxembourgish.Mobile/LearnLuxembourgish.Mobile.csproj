@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>LearnLuxembourgish.Mobile</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- App settings -->
+    <ApplicationId>lu.letzsprooch.app</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidMinSdkVersion>24</AndroidMinSdkVersion>
+    <ApplicationTitle>LëtzSprooch</ApplicationTitle>
+    <!-- Unpackaged for Debug so the exe is directly runnable; Release keeps MSIX -->
+    <WindowsPackageType Condition="'$(Configuration)' == 'Debug'">None</WindowsPackageType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App icon -->
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#003f8a" />
+    <!-- Splash screen -->
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#003f8a" BaseSize="128,128" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embed appsettings so MauiProgram can read it at runtime -->
+    <EmbeddedResource Include="appsettings.json" LogicalName="appsettings.json" />
+    <!-- Release overrides (gitignored) — created locally or by CI from secrets -->
+    <EmbeddedResource Condition="'$(Configuration)' == 'Release' and Exists('appsettings.release.json')" Include="appsettings.release.json" LogicalName="appsettings.release.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.71" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.71" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.84.2" />
+    <PackageReference Include="MudBlazor" Version="9.5.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LearnLuxembourgish.Shared\LearnLuxembourgish.Shared.csproj" />
+  </ItemGroup>
+</Project>

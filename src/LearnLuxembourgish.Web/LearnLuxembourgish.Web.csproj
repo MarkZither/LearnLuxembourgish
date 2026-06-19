@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>learnluxembourgish-web-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" Version="9.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LearnLuxembourgish.Shared\LearnLuxembourgish.Shared.csproj" />
+    <ProjectReference Include="..\LearnLuxembourgish.ServiceDefaults\LearnLuxembourgish.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,4 @@
+{
+  "ApiBaseUrl": "https://your-production-api.example.com",
+  "ApiBaseUrl.Android": "https://your-production-api.example.com"
+}

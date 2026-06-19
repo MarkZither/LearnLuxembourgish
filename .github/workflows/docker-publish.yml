@@ -1,0 +1,102 @@
+name: Publish Docker Images
+
+# Triggered manually or on version tags (e.g. v1.2.3)
+on:
+  workflow_dispatch:
+    inputs:
+      push_images:
+        description: 'Push images to Docker Hub after building?'
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+env:
+  API_IMAGE:  ${{ vars.DOCKERHUB_USERNAME }}/learnluxembourgish-api
+  WEB_IMAGE:  ${{ vars.DOCKERHUB_USERNAME }}/learnluxembourgish-web
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Set image tag from git ref ─────────────────────────────────────────
+      # On a version tag push this will be e.g. "v1.2.3".
+      # On workflow_dispatch it uses the branch/SHA.
+      - name: Derive image tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Docker Hub login ──────────────────────────────────────────────────
+      # Secrets required in repo Settings → Secrets → Actions:
+      #   DOCKERHUB_USERNAME  (also set as a repo variable so it's available in env:)
+      #   DOCKERHUB_TOKEN     (Docker Hub access token — NOT your password)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Docker Buildx (multi-platform support + build cache) ──────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Build & push API image ─────────────────────────────────────────────
+      # The image contains ONLY compiled application code.
+      # All secrets (API keys, JWT secret, Azure AD credentials) are injected
+      # at container runtime as environment variables — nothing is baked in.
+      - name: Build and push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/LearnLuxembourgish.Api/Dockerfile
+          push: ${{ github.event_name == 'push' || inputs.push_images }}
+          tags: |
+            ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.API_IMAGE }}:latest
+          cache-from: type=gha,scope=api
+          cache-to:   type=gha,scope=api,mode=max
+
+      # ── Build & push Web image ─────────────────────────────────────────────
+      - name: Build and push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/LearnLuxembourgish.Web/Dockerfile
+          push: ${{ github.event_name == 'push' || inputs.push_images }}
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.WEB_IMAGE }}:latest
+          cache-from: type=gha,scope=web
+          cache-to:   type=gha,scope=web,mode=max
+
+      # ── Summary ───────────────────────────────────────────────────────────
+      - name: Write job summary
+        run: |
+          echo "## Docker Images Published" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | Tag |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-----|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`${{ env.API_IMAGE }}\` | \`${{ steps.tag.outputs.tag }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`${{ env.WEB_IMAGE }}\` | \`${{ steps.tag.outputs.tag }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Runtime secrets required (pass as env vars, never baked in)" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Jwt__SecretKey" >> "$GITHUB_STEP_SUMMARY"
+          echo "AzureAd__TenantId, AzureAd__ClientId" >> "$GITHUB_STEP_SUMMARY"
+          echo "Translation__DeepL__ApiKey, Translation__Mistral__ApiKey" >> "$GITHUB_STEP_SUMMARY"
+          echo "Grammar__Mistral__ApiKey, Grammar__Groq__ApiKey" >> "$GITHUB_STEP_SUMMARY"
+          echo "ConnectionStrings__DefaultConnection" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "See \`.env.template\` for the complete list." >> "$GITHUB_STEP_SUMMARY"

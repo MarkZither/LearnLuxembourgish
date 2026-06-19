@@ -11,6 +11,11 @@
 *.sln.docstates
 *.env
 
+# IMPORTANT: DO NOT store secrets in appsettings.Development.json files!
+# Use dotnet user-secrets instead (see README.md for instructions)
+# appsettings.Development.json files should only contain non-sensitive overrides
+# and are currently tracked in git for transparency
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -416,4 +421,20 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
-letzsprooch.jks
+
+# Android signing keystores — never commit these
+*.jks
+*.keystore
+
+# Mobile release appsettings — created locally or by CI from secrets, never committed
+src/LearnLuxembourgish.Mobile/appsettings.release.json
+
+# Docker runtime secrets — copy from .env.template and fill in; never commit
+.env
+
+# SQLite WAL / shared-memory sidecar files
+*.db-shm
+*.db-wal
+
+# Docker compose runtime data (SQLite db volume mount)
+/data/

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "copilot/**" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore server projects
+      run: |
+        dotnet restore src/LearnLuxembourgish.Data.Shared/LearnLuxembourgish.Data.Shared.csproj
+        dotnet restore src/LearnLuxembourgish.Data.SQLite/LearnLuxembourgish.Data.SQLite.csproj
+        dotnet restore src/LearnLuxembourgish.Data.SqlServer/LearnLuxembourgish.Data.SqlServer.csproj
+        dotnet restore src/LearnLuxembourgish.Data.PostgreSQL/LearnLuxembourgish.Data.PostgreSQL.csproj
+        dotnet restore src/LearnLuxembourgish.Shared/LearnLuxembourgish.Shared.csproj
+        dotnet restore src/LearnLuxembourgish.ServiceDefaults/LearnLuxembourgish.ServiceDefaults.csproj
+        dotnet restore src/LearnLuxembourgish.Api/LearnLuxembourgish.Api.csproj
+        dotnet restore src/LearnLuxembourgish.Web/LearnLuxembourgish.Web.csproj
+        dotnet restore tests/LearnLuxembourgish.Tests/LearnLuxembourgish.Tests.csproj
+      working-directory: ${{ github.workspace }}
+
+    - name: Build server projects
+      run: |
+        dotnet build src/LearnLuxembourgish.Data.Shared/LearnLuxembourgish.Data.Shared.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Data.SQLite/LearnLuxembourgish.Data.SQLite.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Data.SqlServer/LearnLuxembourgish.Data.SqlServer.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Data.PostgreSQL/LearnLuxembourgish.Data.PostgreSQL.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Shared/LearnLuxembourgish.Shared.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.ServiceDefaults/LearnLuxembourgish.ServiceDefaults.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Api/LearnLuxembourgish.Api.csproj --no-restore
+        dotnet build src/LearnLuxembourgish.Web/LearnLuxembourgish.Web.csproj --no-restore
+        dotnet build tests/LearnLuxembourgish.Tests/LearnLuxembourgish.Tests.csproj --no-restore
+      working-directory: ${{ github.workspace }}
+
+    - name: Test
+      run: dotnet test tests/LearnLuxembourgish.Tests/LearnLuxembourgish.Tests.csproj --no-build --verbosity normal
+      working-directory: ${{ github.workspace }}

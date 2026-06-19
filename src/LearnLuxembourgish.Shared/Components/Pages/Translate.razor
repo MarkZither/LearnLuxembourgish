@@ -1,0 +1,416 @@
+@page "/translate"
+@using LearnLuxembourgish.Shared.Models
+@using LearnLuxembourgish.Shared.Http
+@using LearnLuxembourgish.Shared.Services
+@inject LearnLuxembourgish.Shared.Http.ApiClient Api
+@inject UserSettingsService Settings
+@inject NavigationManager Navigation
+@inject ISproochmaschinnService Sproochmaschinn
+
+<PageTitle>Translate to Luxembourgish</PageTitle>
+
+<div class="container mt-4">
+    <h1>Translate to Luxembourgish</h1>
+    <p class="lead">Enter an English or Polish sentence to get an idiomatic Luxembourgish translation.</p>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Source Language</label>
+                <div class="btn-group d-block" role="group">
+                    <input type="radio" class="btn-check" name="lang" id="langEN" value="EN"
+                           checked="@(SourceLanguage == "EN")" @onchange="@(() => SourceLanguage = "EN")" />
+                    <label class="btn btn-outline-primary" for="langEN">English</label>
+
+                    <input type="radio" class="btn-check" name="lang" id="langPL" value="PL"
+                           checked="@(SourceLanguage == "PL")" @onchange="@(() => SourceLanguage = "PL")" />
+                    <label class="btn btn-outline-primary" for="langPL">Polish</label>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="inputText" class="form-label fw-bold">Text to Translate</label>
+                <textarea id="inputText" class="form-control" rows="4" placeholder="Enter text here..."
+                          @bind="InputText"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Grammar Aspects</label>
+                <div class="text-muted small mb-2">Select which aspects to include in the grammar explanation. Leave all unchecked for the full breakdown.</div>
+                <div class="row row-cols-1 row-cols-sm-2 g-1">
+                    @foreach (var aspect in GrammarAspectOptions)
+                    {
+                        <div class="col">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="aspect-@aspect.Key"
+                                       checked="@SelectedAspects.Contains(aspect.Key)"
+                                       @onchange="@(e => ToggleAspect(aspect.Key, (bool)e.Value!))" />
+                                <label class="form-check-label" for="aspect-@aspect.Key">@aspect.Label</label>
+                                @if (aspect.Description is not null)
+                                {
+                                    <div class="text-muted" style="font-size:0.75rem">@aspect.Description</div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-lg" @onclick="TranslateAsync" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    <span>Translating...</span>
+                }
+                else
+                {
+                    <span>Translate</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    @if (Progress != null)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Translate" Class="me-2" />
+                @Progress.CurrentStep
+            </MudText>
+            <MudProgressLinear Color="Color.Primary" Value="@Progress.PercentComplete" Class="mb-3" />
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @Progress.PercentComplete% Complete
+            </MudText>
+
+            @if (Progress.CompletedSteps.Any())
+            {
+                <div class="mt-3">
+                    @foreach (var step in Progress.CompletedSteps)
+                    {
+                        <div class="d-flex align-items-center mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="me-2" />
+                            <MudText Typo="Typo.body2">@step</MudText>
+                        </div>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
+
+    @if (ErrorMessage is not null)
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (Result is not null)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Translation Result
+                    <span class="badge bg-secondary ms-2">via @Result.Provider</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Original (@Result.SourceLanguage)</h6>
+                        <p class="p-3 bg-light rounded">@Result.OriginalText</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Luxembourgish (Lëtzebuergesch) <span class="badge bg-secondary fw-normal ms-1">DeepL</span></h6>
+                        <p class="p-3 bg-primary text-white rounded">@Result.TranslatedText</p>
+                        @if (Result.RevisedTranslation is not null &&
+                             !string.Equals(Result.RevisedTranslation, Result.TranslatedText, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <h6 class="mt-2">Revised <span class="badge bg-success fw-normal ms-1">Grammar-corrected</span></h6>
+                            <p class="p-3 bg-success text-white rounded">@Result.RevisedTranslation</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Audio Pronunciation</h6>
+                    @if (Result.AudioUrl is not null)
+                    {
+                        <audio controls src="@Result.AudioUrl" class="w-100">
+                            Your browser does not support audio playback.
+                        </audio>
+                    }
+                    else if (IsGeneratingAudio)
+                    {
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            <small class="text-muted">Generating audio pronunciation...</small>
+                        </div>
+                    }
+                    else if (Result.AudioError is not null)
+                    {
+                        <div class="alert alert-warning py-2 mb-0">
+                            <small>
+                                <strong>Audio unavailable</strong>
+                                <span> — @Result.AudioError</span>
+                            </small>
+                        </div>
+                    }
+                </div>
+
+                @if (Result.GrammarExplanation is not null)
+                {
+                    <div class="mb-3">
+                        <h6>Grammar Explanation</h6>
+                        <div class="p-3 bg-light rounded">
+                            <MarkdownContent Content="@Result.GrammarExplanation" />
+                        </div>
+                    </div>
+                }
+
+                @if (Result.VerbConjugations is { Count: > 0 })
+                {
+                    <div class="mb-3">
+                        <h6>Verb Conjugations</h6>
+                        @foreach (var table in Result.VerbConjugations)
+                        {
+                            <details class="mb-2 border rounded">
+                                <summary class="p-2 bg-light" style="cursor:pointer;list-style:none;user-select:none">
+                                    <strong>@table.Infinitive</strong>
+                                    <span class="text-muted ms-2 fw-normal">@table.English</span>
+                                </summary>
+                                <div class="p-3">
+                                    @foreach (var tense in table.Tenses)
+                                    {
+                                        <p class="mb-1 mt-2 small fw-bold text-secondary">@tense.Name</p>
+                                        <table class="table table-sm table-bordered mb-3">
+                                            <tbody>
+                                                @foreach (var form in tense.Forms)
+                                                {
+                                                    <tr>
+                                                        <td class="fw-bold text-nowrap" style="width:35%">@form.Key</td>
+                                                        <td>@form.Value</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </div>
+                            </details>
+                        }
+                    </div>
+                }
+
+                <button class="btn btn-success" @onclick="SaveAsFlashCard">
+                    Save as Flash Card
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (SavedMessage is not null)
+    {
+        <div class="alert alert-success">@SavedMessage</div>
+    }
+</div>
+
+@code {
+    private string SourceLanguage { get; set; } = "EN";
+    private string InputText { get; set; } = string.Empty;
+    private HashSet<string> SelectedAspects { get; set; } =
+        ["nouns-genders", "eifeler-regel", "inversion", "verbs-of-motion", "other-grammar"];
+    private TranslationResult? Result { get; set; }
+    private bool IsLoading { get; set; }
+    private bool IsGeneratingAudio { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string? SavedMessage { get; set; }
+    private TranslationProgress? Progress { get; set; }
+
+    private record GrammarAspect(string Key, string Label, string? Description);
+
+    private static readonly GrammarAspect[] GrammarAspectOptions =
+    [
+        new("nouns-genders",     "Nouns & Genders",           "Gender, articles, and cases for each noun"),
+        new("eifeler-regel",     "Eifeler Regel",             "Where the word-final -n is dropped or added"),
+        new("inversion",         "Inversion (V2 Word Order)", "Subject-verb inversion after fronted elements"),
+        new("verbs-of-motion",   "Verbs of Motion",           "Correct verb for each mode of travel"),
+        new("other-grammar",     "Other Grammar Notes",       "Prepositions, idiomatic expressions, and more"),
+    ];
+
+    private void ToggleAspect(string key, bool isChecked)
+    {
+        if (isChecked) SelectedAspects.Add(key);
+        else SelectedAspects.Remove(key);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !Settings.IsLoaded)
+        {
+            await Settings.LoadAsync();
+        }
+    }
+
+    private async Task TranslateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(InputText)) return;
+
+        IsLoading = true;
+        ErrorMessage = null;
+        SavedMessage = null;
+        Result = null;
+        Progress = new TranslationProgress
+        {
+            CurrentStep = "Initializing translation...",
+            PercentComplete = 10
+        };
+
+        try
+        {
+            await Task.Delay(100);
+            StateHasChanged();
+
+            Progress.CurrentStep = "Sending request to translation service...";
+            Progress.PercentComplete = 20;
+            StateHasChanged();
+
+            var request = new TranslationRequest
+            {
+                Text = InputText,
+                SourceLanguage = SourceLanguage,
+                GrammarApiKey = Settings.GrammarProvider == "groq" ? Settings.GroqApiKey : Settings.MistralApiKey,
+                GrammarProvider = Settings.GrammarProvider,
+                GrammarAspects = SelectedAspects.Count > 0 ? [.. SelectedAspects] : null
+            };
+            var response = await Api.PostAsJsonAsync("api/translations", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TranslationResult>();
+
+                if (result != null)
+                {
+                    Progress.CurrentStep = "Processing translation...";
+                    Progress.PercentComplete = 40;
+                    Progress.CompletedSteps.Add("✓ Request sent successfully");
+                    StateHasChanged();
+                    await Task.Delay(100);
+
+                    Result = result;
+
+                    Progress.CurrentStep = "Finalizing...";
+                    Progress.PercentComplete = 100;
+                    Progress.CompletedSteps.Add($"✓ Translation completed via {Result.Provider}");
+                    if (Result.AudioUrl is not null)
+                        Progress.CompletedSteps.Add("✓ Audio pronunciation ready");
+                    if (Result.GrammarExplanation is not null)
+                        Progress.CompletedSteps.Add("✓ Grammar explanation ready");
+                    if (Result.RevisedTranslation is not null)
+                        Progress.CompletedSteps.Add("✓ Revised translation ready");
+                    if (Result.VerbConjugations is { Count: > 0 })
+                        Progress.CompletedSteps.Add($"✓ Verb conjugation tables ready ({Result.VerbConjugations.Count} verbs)");
+                    StateHasChanged();
+                    await Task.Delay(300);
+
+                    // If no cached audio exists, generate it here and upload for future reuse
+                    if (Result.AudioRequired)
+                    {
+                        await GenerateAndUploadAudioAsync(Result.TranslatedText);
+                    }
+                }
+            }
+            else
+            {
+                ErrorMessage = $"Translation failed: {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            //Progress = null;
+        }
+    }
+
+    private async Task SaveAsFlashCard()
+    {
+        if (Result is null) return;
+
+        if (Result.TranslationId is null)
+        {
+            SavedMessage = "Please log in before translating to save flash cards.";
+            return;
+        }
+
+        try
+        {
+            var response = await Api.PostAsJsonAsync("api/flashcards", new FlashCardRequest
+            {
+                TranslationId = Result.TranslationId.Value,
+                DeckName = "Default"
+            });
+
+            if (response.IsSuccessStatusCode)
+                SavedMessage = "Flash card saved!";
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                SavedMessage = "Please log in to save flash cards.";
+            else
+                SavedMessage = $"Could not save flash card: {response.ReasonPhrase}";
+        }
+        catch (Exception ex)
+        {
+            SavedMessage = $"Error saving flash card: {ex.Message}";
+        }
+    }
+
+    private async Task GenerateAndUploadAudioAsync(string luxembourgishText)
+    {
+        if (Result is null) return;
+
+        IsGeneratingAudio = true;
+        StateHasChanged();
+
+        try
+        {
+            var audioResult = await Sproochmaschinn.GenerateAudioAsync(luxembourgishText);
+            if (audioResult is null)
+            {
+                Result.AudioError = "Audio generation failed.";
+                return;
+            }
+
+            var (audioBytes, contentType) = audioResult.Value;
+            var uploadRequest = new AudioUploadRequest
+            {
+                LuxembourgishText = luxembourgishText,
+                AudioData = Convert.ToBase64String(audioBytes),
+                ContentType = contentType
+            };
+
+            var uploadResponse = await Api.PostAsJsonAsync("api/audio", uploadRequest);
+            if (uploadResponse.IsSuccessStatusCode)
+            {
+                var uploadResult = await uploadResponse.Content.ReadFromJsonAsync<AudioUploadResult>();
+                if (uploadResult is not null)
+                {
+                    Result.AudioUrl = uploadResult.AudioUrl;
+                    Result.AudioRequired = false;
+                    if (Progress is not null)
+                        Progress.CompletedSteps.Add("✓ Audio pronunciation ready");
+                }
+            }
+            else
+            {
+                Result.AudioError = "Could not save audio to server.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Result.AudioError = $"Audio error: {ex.Message}";
+        }
+        finally
+        {
+            IsGeneratingAudio = false;
+            StateHasChanged();
+        }
+    }
+}
