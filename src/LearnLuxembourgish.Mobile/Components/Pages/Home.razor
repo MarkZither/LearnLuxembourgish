@@ -1,0 +1,54 @@
+@page "/"
+
+<PageTitle>Home – LëtzSprooch</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h4" GutterBottom="true">LëtzSprooch</MudText>
+    <MudText Typo="Typo.body1" Class="mb-6">
+        Practice Lëtzebuergesch with AI-powered translation and flash cards.
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Translate</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Primary" />
+                    </CardHeaderAvatar>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Translate text into Luxembourgish with grammar explanations.</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="translate">
+                        Open
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Flash Cards</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderAvatar>
+                        <MudIcon Icon="@Icons.Material.Filled.Style" Color="Color.Secondary" />
+                    </CardHeaderAvatar>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Review your saved translations with flash cards.</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="flashcards">
+                        Open
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>

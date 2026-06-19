@@ -1,0 +1,33 @@
+# Build outputs — never include compiled artefacts in the image build context
+**/bin/
+**/obj/
+
+# Git and IDE metadata
+.git/
+.github/
+.vs/
+.vscode/
+.history/
+
+# Secrets — critical: these must NEVER be baked into an image
+.env
+**/*.pfx
+**/*.p12
+**/*.jks
+**/*.keystore
+
+# SQLite database files — runtime data, not part of the image
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Test projects — not needed to build the application images
+tests/
+
+# Mobile project — not a server image
+src/LearnLuxembourgish.Mobile/
+src/LearnLuxembourgish.AppHost/
+
+# Publish profiles and user-specific files
+**/*.pubxml
+**/*.user

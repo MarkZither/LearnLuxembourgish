@@ -1,0 +1,57 @@
+# Local Docker Compose for testing the production images.
+#
+# Before running:
+#   1. cp .env.template .env  and fill in real values
+#   2. Build the images (or pull from Docker Hub):
+#        ./scripts/docker-build-push.ps1 -BuildOnly
+#      OR
+#        docker compose pull
+#   3. docker compose up
+#
+# The .env file is gitignored — never commit it.
+
+services:
+  api:
+    image: ${DOCKER_USERNAME:-learnlux}/learnluxembourgish-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/LearnLuxembourgish.Api/Dockerfile
+    ports:
+      - "5000:8080"
+    volumes:
+      # SQLite database persisted on the host — keeps data between container restarts
+      - ./data:/data
+    env_file:
+      - .env
+    environment:
+      # Explicitly override ASPNETCORE_ENVIRONMENT to ensure Development appsettings
+      # are never loaded regardless of what is in the .env file
+      ASPNETCORE_ENVIRONMENT: Production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    image: ${DOCKER_USERNAME:-learnlux}/learnluxembourgish-web:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: src/LearnLuxembourgish.Web/Dockerfile
+    ports:
+      - "5001:8080"
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Aspire service-discovery format — tells the Web app where to find the API.
+      # Uses the Docker Compose service name 'api' on its internal port 8080.
+      Services__api__http__0: http://api:8080
+      # Reflect the public-facing allowed origins back to the API via the web env
+      # (API reads AllowedOrigins from its own env, set in .env)
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
