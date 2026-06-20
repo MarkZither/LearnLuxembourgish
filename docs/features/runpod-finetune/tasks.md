@@ -38,13 +38,17 @@
 ## Phase 4 — US2: ML Pipeline Artefacts Available in Repository (P2)
 
 > Creates the `/ml/` folder at repo root with training script, dataset template,
-> deployment template, and README. These files are outside the .NET solution and
+> deployment template, platform notebooks, and README. Training platform is the developer's
+> choice: Google Colab (free), Kaggle (free, 30 h/week), or RunPod A40 (paid). Inference
+> serving always targets RunPod Serverless. These files are outside the .NET solution and
 > are not built by the `dotnet` toolchain.
 
-- [ ] Create `/ml/train_qlora.py` — QLoRA fine-tuning script for Gemma 3 27B accepting CLI arguments (`--base-model`, `--dataset`, `--output`, `--epochs`, `--lr`, `--lora-rank`) with no hardcoded user paths; validates dataset schema (required fields: `instruction`, `input`, `output`; optional: `cefr_level`) before training begins and halts with a descriptive error message identifying the first malformed record and line number
+- [ ] Create `/ml/train_qlora.py` — platform-agnostic QLoRA fine-tuning script for Gemma 3 27B accepting CLI arguments (`--base-model`, `--dataset`, `--output`, `--epochs`, `--lr`, `--lora-rank`) with no hardcoded user paths; validates dataset schema (required fields: `instruction`, `input`, `output`; optional: `cefr_level`) before training begins and halts with a descriptive error message identifying the first malformed record and line number; runnable on Colab, Kaggle, and RunPod without modification
+- [ ] [P] Create `/ml/notebooks/colab_train_qlora.ipynb` — Google Colab-ready Jupyter notebook that installs dependencies (`transformers`, `peft`, `trl`, `bitsandbytes`), mounts Google Drive, calls `train_qlora.py` with Drive-relative paths, and saves the LoRA adapter back to Drive; includes a note that free-tier T4 (15 GB) is too small for full Gemma 3 27B — recommends Colab Pro (A100) or reducing LoRA rank
+- [ ] [P] Create `/ml/notebooks/kaggle_train_qlora.ipynb` — Kaggle-ready Jupyter notebook that installs dependencies, calls `train_qlora.py`, and writes the adapter to `/kaggle/working/` so it is saved as a Kaggle Dataset output; GPU accelerator set to 2×T4
 - [ ] [P] Create `/ml/dataset_template.jsonl` — JSONL template where each record has `instruction` (string), `input` (string, may be empty), `output` (string), and optional `cefr_level` (`A1` or `A2`); file contains at least 3 illustrative CEFR A1/A2 Luxembourgish grammar/translation examples
 - [ ] [P] Create `/ml/deploy_runpod_serverless.yaml` — RunPod Serverless worker configuration template specifying vLLM Docker image reference, GPU type (A40 or configurable equivalent), and documented required environment variables (`MODEL_PATH`, `SERVED_MODEL_NAME`, and API key); usable without modification beyond filling in the model path placeholder
-- [ ] [P] Create `/ml/README.md` — covers folder structure and file purposes, prerequisites (Python version, CUDA version, GPU memory requirements), step-by-step training instructions (install, prepare dataset, run `train_qlora.py`, locate output adapter), and deployment instructions (upload adapter, configure `deploy_runpod_serverless.yaml`, start serverless pod, verify OpenAI-compatible endpoint)
+- [ ] [P] Create `/ml/README.md` — covers folder structure and file purposes; training platform comparison table (Colab free/pro, Kaggle, RunPod A40 with cost and VRAM notes); step-by-step instructions for each platform (Colab, Kaggle, RunPod); dataset preparation guide; deployment instructions (upload adapter, configure `deploy_runpod_serverless.yaml`, start serverless pod, verify OpenAI-compatible endpoint)
 
 ---
 

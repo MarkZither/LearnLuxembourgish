@@ -123,10 +123,36 @@ New top-level folder, not part of the .NET solution or any Dockerfile. Contents:
   train_qlora.py
   dataset_template.jsonl
   deploy_runpod_serverless.yaml
+  notebooks/
+    colab_train_qlora.ipynb
+    kaggle_train_qlora.ipynb
 ```
 
 The `/ml/` folder is added to `.dockerignore` (if present) to prevent accidental inclusion in
 API or Web Docker images.
+
+#### Training platform options
+
+Training (fine-tuning) is decoupled from deployment (inference serving). The training script
+`train_qlora.py` is platform-agnostic; the notebooks provide platform-specific wrappers:
+
+| Platform | Cost | GPU | Notes |
+|----------|------|-----|-------|
+| **Google Colab** (free tier) | Free | T4 (15 GB) | Suitable for small datasets and low LoRA rank; session time-limited (~12 h) |
+| **Google Colab Pro** | ~$10/mo | A100 (40 GB) | Recommended for full Gemma 3 27B 4-bit; no session cut-off |
+| **Kaggle** | Free | 2× T4 (2×15 GB) | 30 h/week GPU quota; output saved to Kaggle Datasets |
+| **RunPod A40** | ~$0.39/h | A40 (48 GB) | On-demand; no quota limit; full VRAM for 27B |
+
+**Inference (serving)** always runs on RunPod Serverless — the app's provider integration is
+unaffected by where training happened. The output of any training run is a LoRA adapter that
+is uploaded to a RunPod network volume and served via the vLLM worker.
+
+The two Jupyter notebooks (`colab_train_qlora.ipynb`, `kaggle_train_qlora.ipynb`) are thin
+wrappers that:
+1. Clone the repo (or upload `train_qlora.py` and `dataset_template.jsonl`)
+2. Install dependencies (`pip install transformers peft trl bitsandbytes`)
+3. Call `train_qlora.py` with notebook-appropriate path defaults
+4. Package and export the adapter to Google Drive (Colab) or a Kaggle Dataset (Kaggle)
 
 ### 3.6 Leaderboard Journey Documentation Page
 
@@ -185,6 +211,9 @@ component's code-behind or a companion data file — no layout changes required.
   non-zero code on first invalid record.
 - `deploy_runpod_serverless.yaml` uses a vLLM Docker image and documents all required env vars
   as placeholder comments.
+- Training platform is developer's choice: Google Colab (free), Kaggle (free), or RunPod A40
+  (paid). Platform-specific notebooks in `/ml/notebooks/` wrap `train_qlora.py`. Inference
+  deployment target remains RunPod Serverless regardless of where training ran.
 
 ### Blazor documentation page
 
@@ -231,6 +260,8 @@ Tests live in `tests/LearnLuxembourgish.Tests/`.
 |------|--------|
 | Dataset validation rejects missing `output` field | Run `python ml/train_qlora.py --dataset <malformed.jsonl> --dry-run`; assert exit code != 0 and stderr contains line number |
 | Dataset validation accepts valid template | Run with `dataset_template.jsonl`; assert validation passes |
+| Colab notebook installs deps and invokes train_qlora.py | Run notebook top-to-bottom on Colab free tier with dataset_template.jsonl; assert no unhandled exceptions |
+| Kaggle notebook exports adapter to Kaggle Dataset | Run notebook on Kaggle with dataset_template.jsonl; confirm output directory contains adapter_config.json |
 
 *Note*: Python tests are developer-executed, not part of the `dotnet test` suite. They are
 documented in `/ml/README.md`.

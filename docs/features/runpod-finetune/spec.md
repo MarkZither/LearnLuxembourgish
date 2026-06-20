@@ -17,9 +17,10 @@
 - Multi-tenant or per-user model selection beyond the existing provider-hint mechanism
 - Evaluation harness or automatic leaderboard submission — the leaderboard submission is a manual developer action
 - Changes to the DeepL translation path (DeepL remains the primary translation provider)
-- Fine-tuned model hosting on providers other than RunPod Serverless
+- Fine-tuned model inference hosting on providers other than RunPod Serverless (training platform is flexible — see Assumptions)
 - Any schema or database changes — provider selection is purely configuration-driven
 - UI for end-users to select "RunPod fine-tuned model" — provider is selected server-side via configuration priority
+- Automated notebook execution in CI — notebooks are developer-run tools, not CI artefacts
 
 ## Assumptions
 
@@ -30,6 +31,8 @@
 - The `/ml/` folder at repo root is the agreed location for ML artefacts; it is outside the .NET solution and not built by the `dotnet` toolchain
 - CEFR A1/A2 dataset is assembled by the developer incrementally as they learn Luxembourgish; the dataset template defines the schema, not the data
 - The leaderboard evaluation is a periodic manual action; there is no automated scoring in CI
+- **Training platform is the developer's choice** — Google Colab (free T4/A100), Kaggle (free 2×T4, 30 h/week), or RunPod A40 (paid on-demand). `train_qlora.py` is platform-agnostic; platform-specific notebooks in `/ml/notebooks/` reduce setup friction. The inference deployment target is always RunPod Serverless.
+- Gemma 3 27B in 4-bit quantisation requires ~20–22 GB VRAM; a single Colab free T4 (15 GB) is insufficient for the full 27B model — the Colab free-tier notebook targets a smaller quantised variant or a reduced LoRA rank; Colab Pro (A100) or Kaggle (2×T4 with model parallelism) or RunPod A40 (48 GB) are recommended for the full model
 
 ## User Scenarios & Tests
 
@@ -56,14 +59,16 @@ As a developer setting up a fine-tuning run, I can find a ready-to-use QLoRA tra
 
 **Why this priority**: Prerequisite for having anything to deploy to RunPod; however the app integration (P1) can be tested with any OpenAI-compatible endpoint while training is in progress.
 
-**Independent Test**: Clone the repo, navigate to `/ml/`, and confirm that `train_qlora.py`, `dataset_template.jsonl`, and `runpod_serverless_template.yaml` are present, syntactically valid, and accompanied by a `README.md` explaining each file.
+**Independent Test**: Clone the repo, navigate to `/ml/`, and confirm that `train_qlora.py`, `dataset_template.jsonl`, `deploy_runpod_serverless.yaml`, `ml/notebooks/colab_train_qlora.ipynb`, `ml/notebooks/kaggle_train_qlora.ipynb`, and a `README.md` explaining all files are present and syntactically valid.
 
 **Acceptance Scenarios**:
 
 1. **Given** the `/ml/` directory exists, **When** a developer opens `train_qlora.py`, **Then** the script contains parameterised paths for base model, dataset, output adapter, and hyperparameters; no hardcoded user paths
 2. **Given** the dataset template exists, **When** a developer opens `dataset_template.jsonl`, **Then** each record has a defined schema (`instruction`, `input`, `output`, optional `cefr_level`) and the file contains at least 3 illustrative example rows
-3. **Given** the deployment template exists, **When** a developer opens `runpod_serverless_template.yaml`, **Then** it specifies the Docker image (vLLM or TGI), GPU type, and environment variables for the model path and API key; it can be applied to a RunPod Serverless pod without modification beyond filling in the model path
-4. **Given** a developer follows the `/ml/README.md` instructions end-to-end, **Then** they can reproduce a training run and deploy the resulting adapter to RunPod Serverless without requiring undocumented knowledge
+3. **Given** the deployment template exists, **When** a developer opens `deploy_runpod_serverless.yaml`, **Then** it specifies the Docker image (vLLM or TGI), GPU type, and environment variables for the model path and API key; it can be applied to a RunPod Serverless pod without modification beyond filling in the model path
+4. **Given** a developer follows the `/ml/README.md` instructions end-to-end using **any** of the three supported platforms (Colab, Kaggle, RunPod), **Then** they can reproduce a training run and deploy the resulting adapter to RunPod Serverless without requiring undocumented knowledge
+5. **Given** the Colab notebook exists, **When** a developer opens `ml/notebooks/colab_train_qlora.ipynb` in Google Colab, **Then** running all cells installs dependencies, executes training on the template dataset, and saves the adapter to Google Drive
+6. **Given** the Kaggle notebook exists, **When** a developer opens `ml/notebooks/kaggle_train_qlora.ipynb` in Kaggle, **Then** running all cells installs dependencies, executes training on the template dataset, and exports the adapter as a Kaggle Dataset output
 
 ---
 
@@ -115,7 +120,9 @@ As a visitor or fellow Luxembourgish learner, I can read a documentation page in
 **ML Pipeline Artefacts**
 
 - **FR-009**: The repository MUST contain a `/ml/README.md` that describes: folder structure, prerequisites (Python version, GPU requirements), step-by-step training instructions, and deployment instructions
-- **FR-010**: The repository MUST contain `/ml/train_qlora.py` — a QLoRA fine-tuning script for Gemma 3 27B that accepts command-line arguments for: base model path or HuggingFace ID, dataset path, output adapter path, number of epochs, learning rate, and LoRA rank
+- **FR-010**: The repository MUST contain `/ml/train_qlora.py` — a QLoRA fine-tuning script for Gemma 3 27B that accepts command-line arguments for: base model path or HuggingFace ID, dataset path, output adapter path, number of epochs, learning rate, and LoRA rank; it MUST be platform-agnostic (runnable on Colab, Kaggle, and RunPod without modification)
+- **FR-010a**: The repository MUST contain `/ml/notebooks/colab_train_qlora.ipynb` — a Google Colab-ready notebook that wraps `train_qlora.py`, installs dependencies, and saves the adapter to Google Drive
+- **FR-010b**: The repository MUST contain `/ml/notebooks/kaggle_train_qlora.ipynb` — a Kaggle-ready notebook that wraps `train_qlora.py`, installs dependencies, and exports the adapter as a Kaggle Dataset output
 - **FR-011**: The repository MUST contain `/ml/dataset_template.jsonl` — a JSONL file where each record has at minimum `instruction` (string), `input` (string, may be empty), `output` (string), and an optional `cefr_level` field (`A1` or `A2`)
 - **FR-012**: The repository MUST contain `/ml/deploy_runpod_serverless.yaml` — a RunPod Serverless worker configuration template that references a vLLM or TGI Docker image, specifies the GPU type, and documents required environment variables
 - **FR-013**: The training script MUST validate the dataset schema before beginning training and halt with a descriptive error message on the first malformed record
